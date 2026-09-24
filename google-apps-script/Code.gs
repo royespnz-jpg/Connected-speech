@@ -30,6 +30,10 @@
  */
 
 const APP_NAME = 'Connected Speech Lab';
+// Si el script NO está dentro de la planilla (proyecto independiente), poné acá el ID de la
+// planilla donde guardar los resultados (lo que va entre /d/ y /edit en su URL).
+// Vacío = usa la planilla que contiene el script, o crea una nueva.
+const SPREADSHEET_ID = '';
 const HEADER_BG = '#0f766e';
 const MAX_TEXT = 1000;
 const MAX_ITEMS = 200;
@@ -103,7 +107,7 @@ function onOpen() {
 }
 
 function setElevenLabsKey() {
-  const ui = SpreadsheetApp.getUi();
+  const ui = SpreadsheetApp.getUi(); // solo desde la planilla; si no: ⚙ Configuración del proyecto → Propiedades del script
   const answer = ui.prompt(
     'API key de ElevenLabs',
     'Pegá tu API key (empieza con sk_). Queda guardada solo en este script: los alumnos no la ven.',
@@ -391,7 +395,9 @@ function saveResult_(d) {
         id,
       ];
     });
-    answers.getRange(answers.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    const start = lastRowWithId_(answers) + 1;
+    answers.getRange(start, 1, rows.length, rows[0].length).setValues(rows);
+    answers.getRange(start, 9, rows.length, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
   }
   return { ok: true, saved: items.length };
 }
@@ -433,6 +439,7 @@ function saveRecording_(d) {
 // ─── Hojas ──────────────────────────────────────────────────────────────────
 
 function getSpreadsheet_() {
+  if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) return active;
   // Script independiente (no creado desde una planilla): usa/crea su propia planilla.
@@ -470,7 +477,11 @@ function ensureSheet_(ss, def) {
     }
   }
   if (def === SHEETS.answers) {
-    sheet.getRange('I2:I').setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+    // Las casillas se agregan fila por fila al guardar. Una casilla en toda la columna llena las
+    // filas vacías con FALSE y las respuestas terminarían guardándose desde la fila 1001.
+    const used = lastRowWithId_(sheet);
+    const extra = sheet.getMaxRows() - used;
+    if (extra > 0) sheet.getRange(used + 1, 9, extra, 1).clearDataValidations().clearContent();
     if (!sheet.getConditionalFormatRules().length) {
       sheet.setConditionalFormatRules([
         SpreadsheetApp.newConditionalFormatRule()
@@ -598,6 +609,15 @@ function num_(value) {
 function date_(value) {
   const d = value ? new Date(value) : new Date();
   return isNaN(d.getTime()) ? new Date() : d;
+}
+
+/** Última fila con “ID intento” (columna J); las casillas vacías no cuentan. */
+function lastRowWithId_(sheet) {
+  const last = sheet.getLastRow();
+  if (last < 2) return 1;
+  const ids = sheet.getRange(1, 10, last, 1).getValues();
+  for (let r = ids.length - 1; r >= 1; r--) if (String(ids[r][0]).trim() !== '') return r + 1;
+  return 1;
 }
 
 function exists_(sheet, column, id) {

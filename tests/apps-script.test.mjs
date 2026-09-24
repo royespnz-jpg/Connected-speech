@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import { ttsRequestBody, OUTPUT_FORMAT, MODES, MODELS } from '../js/audio-core.js';
+import { readdirSync } from 'node:fs';
+import { splitCode, stripMarkers } from '../scripts/split-gs.mjs';
 
 const code = readFileSync(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8');
 
@@ -24,6 +26,20 @@ class FakeRange {
   }
   setValue(v) {
     return this.setValues([[v]]);
+  }
+  getValues() {
+    return Array.from({ length: this.rows }, (_, r) =>
+      Array.from({ length: this.cols }, (_, c) => this.sheet.get(this.row + r, this.col + c) ?? ''),
+    );
+  }
+  clearContent() {
+    for (let r = 0; r < this.rows; r++)
+      for (let c = 0; c < this.cols; c++) if (this.sheet.get(this.row + r, this.col + c) !== undefined) this.sheet.set(this.row + r, this.col + c, undefined);
+    this.sheet.trim();
+    return this;
+  }
+  clearDataValidations() {
+    return this;
   }
   setFormula(f) {
     this.sheet.formulas[this.a1 || `${this.row},${this.col}`] = f;
@@ -81,6 +97,12 @@ class FakeSheet {
   }
   getLastRow() {
     return this.data.length;
+  }
+  getMaxRows() {
+    return Math.max(1000, this.data.length);
+  }
+  trim() {
+    while (this.data.length && this.data[this.data.length - 1].every((v) => v === undefined || v === '')) this.data.pop();
   }
   getConditionalFormatRules() {
     return this.rules;
@@ -382,4 +404,34 @@ test('without a key the voice engine says how to set it up', () => {
   assert.equal(JSON.parse(ctx.doGet().body).tts, false);
   assert.match(post({ type: 'tts', text: 'hi', voiceId: 'EXAVITQu4vr4xnSDxMaL' }).error, /API key/);
   assert.equal(post(result()).ok, true); // results still work
+});
+
+test('the short parts in partes/ are up to date and add up to Code.gs', () => {
+  const dir = new URL('../google-apps-script/partes/', import.meta.url);
+  const files = readdirSync(dir).filter((f) => f.endsWith('.gs')).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)));
+  const parts = files.map((f) => stripMarkers(readFileSync(new URL(f, dir), 'utf8')));
+  assert.deepEqual(parts.map((p) => p.replace(/\n+$/, '')), splitCode(code).map((p) => p.replace(/\n+$/, '')), 'run: node scripts/split-gs.mjs');
+  for (const f of files) assert.ok(readFileSync(new URL(f, dir), 'utf8').split('\n').length <= 125, `${f} is too long`);
+  // Loading the parts one after another behaves like loading Code.gs.
+  const ctx = vm.createContext({});
+  for (const p of parts) vm.runInContext(p, ctx);
+  assert.equal(typeof ctx.doPost, 'function');
+  assert.equal(typeof ctx.getSpreadsheet_, 'function');
+});
+
+test('empty checkbox cells (FALSE) do not push answers down to row 1001', () => {
+  const { ctx, ss, post } = makeEnv();
+  ctx.setup();
+  const answers = ss.getSheetByName('Respuestas');
+  // What Google Sheets did with a whole-column checkbox: FALSE in every empty row.
+  for (let r = 2; r <= 1000; r++) answers.set(r, 9, false);
+  ctx.setup(); // repairs the column
+  assert.equal(answers.getLastRow(), 1);
+  post(result());
+  assert.equal(answers.data[1][9], 'attempt-1');
+  assert.equal(answers.getLastRow(), 3);
+  // Still works if the FALSE cells are there when a result arrives.
+  for (let r = 4; r <= 1000; r++) answers.set(r, 9, false);
+  post(result({ id: 'attempt-2' }));
+  assert.equal(answers.data[3][9], 'attempt-2');
 });
