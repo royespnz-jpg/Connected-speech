@@ -14,7 +14,9 @@ export function renderSettings() {
         ? 'ElevenLabs with your personal key.'
         : st.status === 'ok'
           ? `ElevenLabs through the Google Script${st.sheet ? ` of “${esc(st.sheet)}”` : ''}.`
-          : st.status === 'no-tts'
+          : st.status === 'old'
+            ? 'The Google Script is the old version (no voice engine): paste the new Code.gs, run setup and deploy a New version.'
+            : st.status === 'no-tts'
             ? 'The Google Script is connected but has no ElevenLabs key yet (Connected Speech → Guardar API key de ElevenLabs).'
             : st.status === 'offline'
               ? `Can't reach the Google Script: ${esc(st.error || 'offline')}.`

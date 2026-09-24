@@ -16,7 +16,7 @@ import {
   ttsUrl,
   words,
 } from './audio-core.js';
-import { DEFAULT_SCRIPT_URL } from './config.js';
+import { DEFAULT_SCRIPT_URL, OLD_SCRIPT_URLS } from './config.js';
 import { isScriptUrl, scriptGet, scriptPost } from './script-api.js';
 
 const SETTINGS_KEY = 'cs.settings.v1';
@@ -54,7 +54,7 @@ export function getSettings() {
     group: '',
     ...saved,
   };
-  s.sheetUrl = saved.sheetUrl || DEFAULT_SCRIPT_URL;
+  s.sheetUrl = saved.sheetUrl && !OLD_SCRIPT_URLS.includes(saved.sheetUrl) ? saved.sheetUrl : DEFAULT_SCRIPT_URL;
   return s;
 }
 
@@ -121,7 +121,9 @@ export async function checkScript() {
   emit({ type: 'engine' });
   try {
     const info = await scriptGet(sheetUrl);
-    state.script = { status: info.tts ? 'ok' : 'no-tts', sheet: info.sheet, version: info.version || 1 };
+    // v1 scripts only saved results; the voice engine arrived in v2.
+    const status = info.tts ? 'ok' : info.version >= 2 ? 'no-tts' : 'old';
+    state.script = { status, sheet: info.sheet, version: info.version || 1 };
   } catch (err) {
     state.script = { status: 'offline', error: err.message };
   }
@@ -135,7 +137,7 @@ export function scriptStatus() {
 
 function liveSource(s) {
   if (s.apiKey) return 'key';
-  if (isScriptUrl(s.sheetUrl) && !['no-tts', 'offline'].includes(state.script.status)) return 'script';
+  if (isScriptUrl(s.sheetUrl) && !['no-tts', 'old', 'offline'].includes(state.script.status)) return 'script';
   return null;
 }
 
@@ -209,6 +211,22 @@ export function voiceName(slot = 'A') {
   return voiceById(id)?.name || (slot === 'B' ? s.voiceBName : s.voiceAName) || 'Custom voice';
 }
 
+// Why ElevenLabs isn't available right now (null when it is).
+export function engineProblem() {
+  const s = getSettings();
+  if (s.engine === 'browser' || s.apiKey) return null;
+  switch (state.script.status) {
+    case 'old':
+      return 'The Google Script is still the old version. Paste the new Code.gs, run setup, and deploy a new version.';
+    case 'no-tts':
+      return 'The Google Script has no ElevenLabs key yet. In the sheet: Connected Speech → Guardar API key de ElevenLabs.';
+    case 'offline':
+      return `Can't reach the Google Script: ${state.script.error || 'no answer'}`;
+    default:
+      return null;
+  }
+}
+
 // ─── status line for the header ─────────────────────────────────────────────
 
 export function engineSummary() {
@@ -217,6 +235,7 @@ export function engineSummary() {
   const source = liveSource(s);
   if (source || manifestInfo().count) return { label: `ElevenLabs · ${voiceName('A')}`, short: voiceName('A'), level: 'eleven' };
   if (state.script.status === 'no-tts') return { label: 'Browser voice · ElevenLabs not set up', short: 'Set up', level: 'warn' };
+  if (state.script.status === 'old') return { label: 'Browser voice · update the Google Script', short: 'Update', level: 'warn' };
   return { label: 'Browser voice · voice engine offline', short: 'Offline', level: 'warn' };
 }
 
@@ -260,6 +279,11 @@ export async function play(text, { mode = 'natural', voice = 'A', voiceId } = {}
     }
   }
   if (token !== state.token) return;
+  const problem = engineProblem();
+  if (problem && !state.warnedFallback) {
+    state.warnedFallback = true;
+    emit({ type: 'error', message: `Browser voice, not ElevenLabs — ${problem}` });
+  }
   return speakFallback(text, mode, voice, token);
 }
 
@@ -317,6 +341,7 @@ async function liveUrl(text, mode, voiceId, s, source) {
 
 async function scriptTts(text, mode, voiceId, s) {
   const res = await scriptPost(s.sheetUrl, { type: 'tts', text, mode, voiceId, model: s.model });
+  if (!res.audio) throw new Error('The Google Script returned no audio. Is it the new Code.gs?');
   const bytes = Uint8Array.from(atob(res.audio), (c) => c.charCodeAt(0));
   return new Blob([bytes], { type: res.mime || 'audio/mpeg' });
 }
