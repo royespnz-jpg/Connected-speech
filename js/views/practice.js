@@ -1,6 +1,8 @@
 import { exerciseSets, setById, itemSay, itemOptions, diffWords } from '../exercises-data.js';
 import { SOURCES } from '../content.js';
 import { esc, playButton, sourceBadges, icons } from '../ui.js';
+import { saveSettings, getSettings } from '../tts.js';
+import { sheetConfigured, studentName, newId, sendResult } from '../sheets.js';
 
 const PROGRESS_KEY = 'cs.progress.v1';
 
@@ -70,12 +72,14 @@ export function renderPracticeSet(id) {
       <p class="lede">${esc(set.intro)}</p>
       <div class="row">${sourceBadges([set.source])}</div>
     </header>
-    <div class="scorebar" data-scorebar data-set="${set.id}" data-total="${itemCount(set)}">
+    <div class="scorebar" data-scorebar data-set="${set.id}" data-total="${itemCount(set)}"
+      data-attempt="${newId()}" data-started="${Date.now()}">
       <span class="score" data-score>0 / ${itemCount(set)}</span>
       <div class="progress"><span data-bar style="width:0%"></span></div>
       <button type="button" class="btn" data-reset>Start over</button>
     </div>
     ${body}
+    <div class="card done-panel" data-done hidden aria-live="polite"></div>
     <nav class="pager">
       <a class="btn" href="#/practice">${icons.arrowL}All exercises</a>
       ${next ? `<a class="btn primary" href="#/practice/${next.id}">${esc(next.title)}${icons.arrowR}</a>` : ''}
@@ -166,7 +170,102 @@ function updateScore(root) {
   }
   bar.querySelector('[data-score]').textContent = `${correct} / ${total}`;
   bar.querySelector('[data-bar]').style.width = `${(100 * answered) / total}%`;
-  if (answered === total) saveBest(set.id, correct, total);
+  if (answered === total) {
+    saveBest(set.id, correct, total);
+    finish(root, set, correct, total);
+  }
+}
+
+// ─── finishing: summary + sending to the teacher's Google Sheet ─────────────
+
+function textOf(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent.trim();
+}
+
+function collectAnswers(root, set) {
+  if (set.type === 'pick') {
+    const rows = [];
+    root.querySelectorAll('.pw').forEach((b) => {
+      const word = b.textContent;
+      if (b.classList.contains('correct')) rows.push({ prompt: word, answer: 'marked', expected: 'marked', correct: true });
+      if (b.classList.contains('wrong')) rows.push({ prompt: word, answer: 'marked', expected: 'not marked', correct: false });
+      if (b.classList.contains('missed')) rows.push({ prompt: word, answer: 'not marked', expected: 'marked', correct: false });
+    });
+    return rows.map((r, i) => ({ n: i + 1, ...r }));
+  }
+  return [...root.querySelectorAll('.item')].map((el) => {
+    const i = Number(el.dataset.item);
+    const item = set.items[i];
+    if (set.type === 'dictation') {
+      return { n: i + 1, prompt: `Dictation ${i + 1}`, answer: el.dataset.typed || '', expected: item.answer, correct: el.dataset.result === 'ok' };
+    }
+    const opts = itemOptions(set, item);
+    return {
+      n: i + 1,
+      prompt: set.type === 'blank' ? item.s : textOf(item.q),
+      answer: opts[Number(el.dataset.chosen)] ?? '',
+      expected: opts[item.answer],
+      correct: el.dataset.result === 'ok',
+    };
+  });
+}
+
+function finish(root, set, correct, total) {
+  const bar = root.querySelector('[data-scorebar]');
+  if (bar.dataset.finished) return;
+  bar.dataset.finished = '1';
+  const started = Number(bar.dataset.started);
+  root.csResult = {
+    id: bar.dataset.attempt,
+    setId: set.id,
+    setTitle: set.title,
+    correct,
+    total,
+    durationSec: Math.round((Date.now() - started) / 1000),
+    startedAt: new Date(started).toISOString(),
+    finishedAt: new Date().toISOString(),
+    items: collectAnswers(root, set),
+  };
+  const panel = root.querySelector('[data-done]');
+  panel.hidden = false;
+  panel.innerHTML = `<h2 style="margin:0 0 6px">Finished: ${correct} / ${total} (${Math.round((100 * correct) / total)}%)</h2>
+    <div data-sheet-status></div>`;
+  if (!sheetConfigured()) return;
+  if (studentName()) submitResult(root);
+  else showNameForm(root);
+}
+
+function showNameForm(root) {
+  const s = getSettings();
+  root.querySelector('[data-sheet-status]').innerHTML = `<form class="row" data-name-form>
+      <input class="dict-input" style="flex:1 1 180px;margin:0" name="student" required maxlength="80" placeholder="Your name" aria-label="Your name" value="${esc(s.student)}">
+      <input class="dict-input" style="flex:0 1 140px;margin:0" name="group" maxlength="40" placeholder="Class / group" aria-label="Class or group" value="${esc(s.group)}">
+      <button class="btn primary" type="submit">Send to my teacher</button>
+    </form>`;
+}
+
+async function submitResult(root) {
+  const status = root.querySelector('[data-sheet-status]');
+  if (!status || !root.csResult) return;
+  status.innerHTML = '<p class="muted">Sending your results to your teacher…</p>';
+  try {
+    await sendResult(root.csResult);
+    const s = getSettings();
+    status.innerHTML = `<p class="sent">✓ Sent to your teacher's sheet as <b>${esc(s.student)}</b>${s.group ? ` (${esc(s.group)})` : ''}.</p>`;
+  } catch (err) {
+    status.innerHTML = `<p class="muted">Couldn't send (${esc(err.message)}). It's saved and will be sent again automatically.</p>
+      <button type="button" class="btn" data-send-results>Try again</button>`;
+  }
+}
+
+export function handleNameForm(form, root) {
+  const data = new FormData(form);
+  const student = String(data.get('student') || '').trim();
+  if (!student) return;
+  saveSettings({ student, group: String(data.get('group') || '').trim() });
+  submitResult(root);
 }
 
 export function handlePracticeClick(target, root) {
@@ -181,6 +280,7 @@ export function handlePracticeClick(target, root) {
       if (k === answer) b.classList.add('correct');
     });
     if (chosen !== answer) opt.classList.add('wrong');
+    item.dataset.chosen = String(chosen);
     item.dataset.result = chosen === answer ? 'ok' : 'no';
     const fb = item.querySelector('[data-feedback]');
     fb.hidden = false;
@@ -224,6 +324,11 @@ export function handlePracticeClick(target, root) {
     return true;
   }
 
+  if (target.closest('[data-send-results]')) {
+    submitResult(root);
+    return true;
+  }
+
   if (target.closest('[data-reset]')) {
     return 'rerender';
   }
@@ -237,6 +342,7 @@ export function handlePracticeSubmit(form, root) {
   const typed = form.querySelector('input').value;
   if (!typed.trim()) return;
   const { ops, correct } = diffWords(data.answer, typed);
+  item.dataset.typed = typed.trim();
   item.dataset.result = correct ? 'ok' : 'no';
   const fb = item.querySelector('[data-feedback]');
   fb.hidden = false;

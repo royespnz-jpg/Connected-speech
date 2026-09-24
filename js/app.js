@@ -16,7 +16,8 @@ import { handleRecorderClick } from './recorder.js';
 import { esc, toast } from './ui.js';
 import { renderHome } from './views/home.js';
 import { renderTopic } from './views/topic.js';
-import { renderPracticeList, renderPracticeSet, handlePracticeClick, handlePracticeSubmit } from './views/practice.js';
+import { renderPracticeList, renderPracticeSet, handlePracticeClick, handlePracticeSubmit, handleNameForm } from './views/practice.js';
+import { applyLinkParams, flushQueue, isSheetUrl, testConnection } from './sheets.js';
 import { renderLab, renderLabResult } from './views/lab.js';
 import { renderSettings, renderVoices, renderCredits } from './views/settings.js';
 
@@ -228,6 +229,33 @@ document.addEventListener('click', async (e) => {
     toast('Cached live audio cleared.');
     return;
   }
+  if (t.closest('[data-test-sheet]')) {
+    const url = document.getElementById('sheet-url').value.trim();
+    try {
+      const info = await testConnection(url);
+      toast(`Connected to “${info.sheet}”. Press Save.`);
+    } catch (err) {
+      toast(`Couldn't connect: ${err.message}`);
+    }
+    return;
+  }
+  if (t.closest('[data-copy-link]')) {
+    const input = document.getElementById('student-link');
+    try {
+      await navigator.clipboard.writeText(input.value);
+      toast('Student link copied.');
+    } catch {
+      input.select();
+      toast('Select the link and copy it.');
+    }
+    return;
+  }
+  if (t.closest('[data-flush-sheet]')) {
+    const left = await flushQueue();
+    toast(left ? `${left} result(s) still pending.` : 'All pending results were sent.');
+    route();
+    return;
+  }
   const use = t.closest('[data-use-voice]');
   if (use) {
     document.getElementById(use.dataset.slot === 'B' ? 'voiceB' : 'voiceA').value = use.dataset.useVoice;
@@ -250,6 +278,28 @@ document.addEventListener('submit', (e) => {
     toast('Settings saved.');
     return;
   }
+  if (form.id === 'sheet-form') {
+    e.preventDefault();
+    const data = new FormData(form);
+    const sheetUrl = String(data.get('sheetUrl') || '').trim();
+    if (sheetUrl && !isSheetUrl(sheetUrl)) {
+      toast('That is not an Apps Script web app URL (it should end in /exec).');
+      return;
+    }
+    saveSettings({
+      student: String(data.get('student') || '').trim(),
+      group: String(data.get('group') || '').trim(),
+      sheetUrl,
+    });
+    toast('Saved.');
+    route();
+    return;
+  }
+  if (form.matches('[data-name-form]')) {
+    e.preventDefault();
+    handleNameForm(form, main);
+    return;
+  }
   if (form.matches('[data-dict-form]')) {
     e.preventDefault();
     handlePracticeSubmit(form, main);
@@ -266,6 +316,9 @@ document.addEventListener('input', (e) => {
 
 // ─── start ──────────────────────────────────────────────────────────────────
 
+const linked = applyLinkParams();
 refreshEngine();
 route();
 loadManifest().then(refreshEngine);
+if (linked) toast("Connected to your teacher's results sheet.");
+flushQueue();

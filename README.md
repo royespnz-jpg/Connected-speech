@@ -68,6 +68,36 @@ trae 10.000 créditos por mes, así que conviene empezar por `natural` y sumar `
 Voces por defecto (americanas, prediseñadas): **Sarah** `EXAVITQu4vr4xnSDxMaL` (voz A) y **Brian**
 `nPczCjzI2devNBz1zQrb` (voz B). Se cambian con las variables de arriba o desde *Settings* en el sitio.
 
+## Resultados en Google Sheets (para docentes)
+
+Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una planilla de Google tuya. El código está en
+[`google-apps-script/Code.gs`](google-apps-script/Code.gs) y crea estas hojas:
+
+| Hoja | Qué guarda |
+| --- | --- |
+| **Resumen** | Promedio, mejor nota, intentos y última vez de cada alumno; promedio de cada ejercicio (se actualiza solo) |
+| **Resultados** | Una fila por ejercicio terminado: fecha, alumno, curso, ejercicio, correctas, total, %, duración |
+| **Respuestas** | Una fila por pregunta: qué contestó el alumno, cuál era la correcta y ✓/✗ (las incorrectas en rojo) |
+| **Grabaciones** | Las grabaciones que el alumno elige enviar (“Send to my teacher”), con un link ▶ al audio en tu Drive |
+| **Alumno × Ejercicio** | La mejor nota de cada alumno en cada ejercicio, en forma de tabla |
+
+**Instalación (una sola vez):**
+
+1. Creá una planilla nueva (<https://sheets.new>) → **Extensiones → Apps Script**.
+2. Borrá lo que haya, pegá todo `Code.gs` y guardá.
+3. Elegí la función **`setup`** → **▶ Ejecutar** → aceptá los permisos (si dice “Google no verificó esta app”:
+   *Configuración avanzada → Ir a…*; es tu propio script).
+4. **Implementar → Nueva implementación → Aplicación web** · Ejecutar como: **Yo** · Quién tiene acceso:
+   **Cualquier persona** → copiá la URL que termina en `/exec`.
+5. En la app: **Settings → Results → Google Sheets** → pegá la URL → *Test connection* → *Save*.
+6. Copiá el **Student link** que aparece ahí y compartilo: abre los ejercicios ya conectados a tu planilla. La primera vez
+   que el alumno termina un ejercicio le pide nombre y curso.
+
+Detalles: si no hay conexión, el resultado queda guardado en el navegador y se reenvía después (la planilla ignora
+duplicados). Los textos que parecen fórmulas se guardan como texto. Si cambiás `Code.gs`, volvé a implementar con
+*Administrar implementaciones → ✏ → Nueva versión* (la URL no cambia). En cuentas de escuela (Google Workspace) el
+administrador puede no permitir “Cualquier persona”; en ese caso usá una cuenta personal.
+
 ## Publicarlo (GitHub Pages)
 
 1. Mergeá esta rama a `main`.
@@ -95,6 +125,8 @@ js/tts.js               audio: pre-generado → ElevenLabs en vivo → voz del n
 js/audio-core.js        parámetros de ElevenLabs compartidos por el sitio y el script
 js/audio-items.js       lista de todos los clips que usa el sitio
 js/views/*.js           páginas: inicio, tema, práctica, lab, settings
+js/sheets.js            envío de resultados y grabaciones a Google Sheets
+google-apps-script/Code.gs   el script de la planilla (pegar en Apps Script)
 scripts/generate-audio.mjs   genera los mp3 con ElevenLabs
 scripts/serve.mjs            servidor local
 .github/workflows/           audio, Pages y tests

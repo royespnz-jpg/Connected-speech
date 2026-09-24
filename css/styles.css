@@ -1306,6 +1306,16 @@ ul.bullets li {
   background: var(--accent);
 }
 
+/* ─── results panel ──────────────────────────────────────────────────────── */
+.done-panel {
+  margin-top: 16px;
+  border-color: var(--accent);
+}
+.done-panel .sent {
+  color: var(--good);
+  margin: 0;
+}
+
 /* ─── toast ──────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;

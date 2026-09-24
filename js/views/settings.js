@@ -1,16 +1,19 @@
 import { MODELS, DEFAULT_VOICES } from '../audio-core.js';
 import { getSettings, manifestInfo } from '../tts.js';
 import { esc, playButton } from '../ui.js';
+import { isSheetUrl, pendingCount, studentLink } from '../sheets.js';
 
 export function renderSettings() {
   const s = getSettings();
   const m = manifestInfo();
   return `<header class="topic-head">
       <div class="eyebrow">Settings</div>
-      <h1>Audio &amp; ElevenLabs</h1>
-      <p class="lede">The lab plays pre-generated ElevenLabs audio when it exists, then live ElevenLabs audio if you add
-        your key, and otherwise your browser's built-in voice.</p>
+      <h1>Results &amp; audio</h1>
+      <p class="lede">Connect a Google Sheet to collect results, and choose where the audio comes from: pre-generated
+        ElevenLabs clips, live ElevenLabs with your key, or your browser's built-in voice.</p>
     </header>
+
+    ${sheetForm(s)}
 
     <section class="card" style="margin-bottom:18px">
       <h2>Pre-generated audio</h2>
@@ -100,4 +103,39 @@ export function renderCredits(sub) {
   out.innerHTML = `<div style="margin-top:6px"><b>${esc(sub.tier || 'plan')}</b>: ${used.toLocaleString()} of ${limit.toLocaleString()} credits used
     <div class="meter"><span style="width:${pct}%"></span></div>
     <small class="muted">${(limit - used).toLocaleString()} left · resets ${esc(reset)}</small></div>`;
+}
+
+function sheetForm(s) {
+  const connected = isSheetUrl(s.sheetUrl);
+  const pending = pendingCount();
+  return `<form class="card form" id="sheet-form" autocomplete="off" style="margin-bottom:18px">
+      <h2 style="margin:0">Results → Google Sheets</h2>
+      <p class="muted" style="margin:0">Finished exercises (and recordings you choose to send) go to your teacher's Google
+        Sheet. Teachers: set up the sheet with <code>google-apps-script/Code.gs</code> from the repository.</p>
+      <div class="row">
+        <div class="field" style="flex:1 1 200px"><label for="student">Your name</label>
+          <input id="student" name="student" type="text" maxlength="80" value="${esc(s.student)}"></div>
+        <div class="field" style="flex:0 1 160px"><label for="group">Class / group</label>
+          <input id="group" name="group" type="text" maxlength="40" value="${esc(s.group)}"></div>
+      </div>
+      <div class="field">
+        <label for="sheet-url">Google Apps Script web app URL</label>
+        <input id="sheet-url" name="sheetUrl" type="text" spellcheck="false" value="${esc(s.sheetUrl)}"
+          placeholder="https://script.google.com/macros/s/…/exec">
+        <div class="hint">${connected ? '✓ Connected. ' : ''}Students: your teacher gives you this (or a link that fills it in).</div>
+      </div>
+      <div class="row">
+        <button type="submit" class="btn primary">Save</button>
+        <button type="button" class="btn" data-test-sheet>Test connection</button>
+        ${pending ? `<button type="button" class="btn" data-flush-sheet>Send pending (${pending})</button>` : ''}
+      </div>
+      ${
+        connected
+          ? `<div class="field"><label for="student-link">Student link</label>
+          <div class="row"><input id="student-link" type="text" readonly value="${esc(studentLink(s.sheetUrl))}" style="flex:1 1 240px">
+            <button type="button" class="btn" data-copy-link>Copy</button></div>
+          <div class="hint">Share it with your students: it opens the exercises already connected to your sheet.</div></div>`
+          : ''
+      }
+    </form>`;
 }

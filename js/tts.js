@@ -39,6 +39,9 @@ export function getSettings() {
     voiceA: DEFAULT_VOICES.A,
     voiceB: DEFAULT_VOICES.B,
     preferLive: false,
+    sheetUrl: '',
+    student: '',
+    group: '',
     ...saved,
   };
 }
