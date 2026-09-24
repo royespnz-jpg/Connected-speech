@@ -70,7 +70,7 @@ function readManifest() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function synthesize(item) {
-  const voiceId = voices[item.voice] || voices.A;
+  const voiceId = item.voiceId;
   for (let attempt = 1; ; attempt++) {
     const res = await fetch(ttsUrl(voiceId), {
       method: 'POST',
@@ -106,15 +106,11 @@ async function main() {
     return listVoices();
   }
 
-  const all = collectAudioItems();
+  const all = collectAudioItems(voices);
   const wanted = all.filter((it) => modes.includes(it.mode));
   const manifest = readManifest();
-  const sameVoice = manifest.model === model && manifest.voices?.A === voices.A && manifest.voices?.B === voices.B;
-  if (manifest.model && !sameVoice && !args.force) {
-    console.warn(
-      `Note: existing clips were made with ${manifest.model} / ${JSON.stringify(manifest.voices)}.\n` +
-        '      New clips will use the current settings. Use --force to regenerate everything.',
-    );
+  if (manifest.model && manifest.model !== model && !args.force) {
+    console.warn(`Note: existing clips were made with ${manifest.model}. Use --force to regenerate them with ${model}.`);
   }
 
   const exists = (it) => existsSync(join(AUDIO_DIR, `${it.key}.mp3`));
@@ -152,15 +148,20 @@ async function main() {
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
-  // Manifest lists every clip that exists on disk and is still used.
-  const items = {};
+  // Manifest lists every clip on disk: this run's voices plus any voices
+  // generated before (the site picks the clip that matches the chosen voice).
+  const items = { ...(manifest.items || {}) };
+  for (const [key, path] of Object.entries(items)) if (!existsSync(join(ROOT, path))) delete items[key];
   for (const it of all) if (exists(it)) items[it.key] = `audio/${it.key}.mp3`;
+  const voiceSets = { ...(manifest.voiceSets || {}) };
+  for (const id of new Set(Object.values(voices))) voiceSets[id] = { model, generatedAt: new Date().toISOString() };
   writeFileSync(
     MANIFEST,
-    `${JSON.stringify({ generatedAt: new Date().toISOString(), model, voices, count: Object.keys(items).length, items }, null, 1)}\n`,
+    `${JSON.stringify({ generatedAt: new Date().toISOString(), model, voices, voiceSets, count: Object.keys(items).length, items }, null, 1)}\n`,
   );
 
   if (args.prune) {
+    // Only removes clips that no longer match any example for the current voices.
     const used = new Set(all.map((it) => `${it.key}.mp3`));
     for (const f of readdirSync(AUDIO_DIR)) {
       if (f.endsWith('.mp3') && !used.has(f)) {

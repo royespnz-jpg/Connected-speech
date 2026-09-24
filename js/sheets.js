@@ -1,13 +1,11 @@
 // Sends exercise results and recordings to the teacher's Google Sheet through
 // the Apps Script web app in google-apps-script/Code.gs.
 import { getSettings, saveSettings } from './tts.js';
+import { isScriptUrl, scriptGet, scriptPost } from './script-api.js';
 
 const QUEUE_KEY = 'cs.sheet.queue.v1';
-const URL_RE = /^https:\/\/script\.google\.com\/(?:a\/[^/\s]+\/)?macros\/s\/[\w-]+\/(?:exec|dev)$/;
 
-export function isSheetUrl(url) {
-  return URL_RE.test(String(url || '').trim());
-}
+export const isSheetUrl = isScriptUrl;
 
 export function sheetConfigured() {
   return isSheetUrl(getSettings().sheetUrl);
@@ -45,27 +43,11 @@ export function applyLinkParams() {
   return ok;
 }
 
-// Apps Script answers a plain-text POST (no CORS preflight) with a redirect to
-// a JSON response that allows any origin, so the result can be read.
-async function post(url, payload) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-    redirect: 'follow',
-  });
-  if (!res.ok) throw new Error(`Google Sheets error ${res.status}`);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'The sheet rejected the data.');
-  return data;
-}
+const post = scriptPost;
 
 export async function testConnection(url) {
   if (!isSheetUrl(url)) throw new Error('That is not an Apps Script web app URL (it should end in /exec).');
-  const res = await fetch(url.trim(), { redirect: 'follow' });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'Unexpected answer.');
-  return data;
+  return scriptGet(url);
 }
 
 // ─── offline queue (results only; the sheet ignores duplicates by id) ───────

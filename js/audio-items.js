@@ -4,18 +4,21 @@
 import { topics } from './content.js';
 import { exerciseSets, itemSay } from './exercises-data.js';
 import { spokenText } from './markup.js';
-import { audioKey, wordsModeAllowed } from './audio-core.js';
+import { DEFAULT_VOICES, audioKey, wordsModeAllowed } from './audio-core.js';
 
 export function exampleText(example) {
   return example.say || spokenText(example.m);
 }
 
-export function collectAudioItems() {
+// voices maps the two speaker slots (A = main voice, B = second speaker in
+// dialogues) to ElevenLabs voice IDs.
+export function collectAudioItems(voices = DEFAULT_VOICES) {
   const items = new Map();
   const add = (text, mode, voice = 'A', where = '') => {
     if (!text) return;
-    const key = audioKey(text, mode, voice);
-    if (!items.has(key)) items.set(key, { key, text, mode, voice, where });
+    const voiceId = voices[voice] || voices.A;
+    const key = audioKey(text, mode, voiceId);
+    if (!items.has(key)) items.set(key, { key, text, mode, voice, voiceId, where });
   };
 
   for (const topic of topics) {

@@ -55,12 +55,14 @@ export function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Links become drawn arcs; --k staggers their animation.
 export function renderMarkup(src) {
+  let k = 0;
   return parseMarkup(src)
     .map((p) => {
       switch (p.t) {
         case 'link':
-          return '<span class="lk" aria-hidden="true">‿</span><span class="sr-only"> </span>';
+          return `<span class="lk" style="--k:${k++}" aria-hidden="true"></span><span class="sr-only"> </span>`;
         case 'ins':
           return `<span class="ins" title="inserted sound">${escapeHtml(p.v)}</span>`;
         case 'del':

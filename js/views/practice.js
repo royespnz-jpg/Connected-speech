@@ -81,7 +81,7 @@ export function renderPracticeSet(id) {
     ${body}
     <div class="card done-panel" data-done hidden aria-live="polite"></div>
     <nav class="pager">
-      <a class="btn" href="#/practice">${icons.arrowL}All exercises</a>
+      <a class="btn back" href="#/practice">${icons.arrowL}All exercises</a>
       ${next ? `<a class="btn primary" href="#/practice/${next.id}">${esc(next.title)}${icons.arrowR}</a>` : ''}
     </nav>
     <p class="muted" style="font-size:.85rem;margin-top:24px">Source: ${esc(SOURCES[set.source].long)}</p>`;

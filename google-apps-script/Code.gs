@@ -6,6 +6,8 @@
  *   • Respuestas   → una fila por cada respuesta (qué contestó y cuál era la correcta)
  *   • Grabaciones  → las grabaciones que los alumnos envían (el audio queda en tu Google Drive)
  *   • Resumen y Alumno × Ejercicio → promedios y mejores notas, se actualizan solos
+ * Y además es el “motor de voz”: genera el audio con ElevenLabs para la página, sin que tu
+ * API key quede a la vista. Cada frase generada se guarda en tu Drive y no se vuelve a pagar.
  *
  * INSTALACIÓN (una sola vez, ~5 minutos)
  *  1. Creá una hoja de cálculo nueva en Google Sheets (sheets.new).
@@ -18,6 +20,10 @@
  *     → Implementar → copiá la “URL de la aplicación web” (termina en /exec).
  *  5. En la app: Settings → “Results → Google Sheets” → pegá la URL → Test connection → Save.
  *     Ahí mismo aparece el “Student link”: compartilo con tus alumnos y sus resultados llegan acá.
+ *  6. Voces de ElevenLabs: en la planilla, menú Connected Speech → “Guardar API key de ElevenLabs”
+ *     (o en Apps Script: ⚙ Configuración del proyecto → Propiedades del script →
+ *     ELEVENLABS_API_KEY). Por seguridad hay un límite diario de caracteres nuevos
+ *     (ELEVENLABS_DAILY_LIMIT, 20000 por defecto); el audio ya generado no cuenta.
  *
  * Si más adelante cambiás este código: Implementar → Administrar implementaciones → ✏ →
  * Versión: “Nueva versión” → Implementar. La URL sigue siendo la misma.
@@ -46,6 +52,18 @@ const SHEETS = {
     widths: [135, 180, 90, 340, 110, 95, 110],
   },
 };
+// Tiene que coincidir con js/audio-core.js (los tests lo verifican).
+const TTS = {
+  api: 'https://api.elevenlabs.io/v1',
+  outputFormat: 'mp3_44100_64',
+  defaultModel: 'eleven_multilingual_v2',
+  models: ['eleven_multilingual_v2', 'eleven_flash_v2_5', 'eleven_turbo_v2_5', 'eleven_v3'],
+  speeds: { natural: 1, slow: 0.8, words: 0.95 },
+  maxChars: 400,
+  dailyLimit: 20000,
+  cacheSeconds: 21600, // 6 h (máximo de CacheService)
+};
+
 const SUMMARY = 'Resumen';
 const MATRIX = 'Alumno × Ejercicio';
 
@@ -78,7 +96,49 @@ function onOpen() {
     .createMenu('Connected Speech')
     .addItem('Preparar / reparar hojas', 'setup')
     .addItem('Cómo conectar la app', 'showHelp')
+    .addSeparator()
+    .addItem('Guardar API key de ElevenLabs', 'setElevenLabsKey')
+    .addItem('Estado de ElevenLabs', 'showElevenLabsStatus')
     .addToUi();
+}
+
+function setElevenLabsKey() {
+  const ui = SpreadsheetApp.getUi();
+  const answer = ui.prompt(
+    'API key de ElevenLabs',
+    'Pegá tu API key (empieza con sk_). Queda guardada solo en este script: los alumnos no la ven.',
+    ui.ButtonSet.OK_CANCEL,
+  );
+  if (answer.getSelectedButton() !== ui.Button.OK) return;
+  const key = answer.getResponseText().trim();
+  if (!key) return;
+  PropertiesService.getScriptProperties().setProperty('ELEVENLABS_API_KEY', key);
+  CacheService.getScriptCache().remove('voices_v1');
+  try {
+    const list = voices_().voices;
+    ui.alert('✓ Conectado a ElevenLabs: ' + list.length + ' voces disponibles.');
+  } catch (err) {
+    ui.alert('La key se guardó, pero ElevenLabs respondió: ' + err.message);
+  }
+}
+
+function showElevenLabsStatus() {
+  const ui = SpreadsheetApp.getUi();
+  const u = usage_();
+  let msg = 'Hoy se generaron ' + u.today + ' de ' + u.limit + ' caracteres nuevos (el audio repetido no cuenta).';
+  try {
+    const res = UrlFetchApp.fetch(TTS.api + '/user/subscription', {
+      headers: { 'xi-api-key': elevenKey_() },
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() === 200) {
+      const sub = JSON.parse(res.getContentText());
+      msg += '\n\nPlan ' + sub.tier + ': ' + sub.character_count + ' de ' + sub.character_limit + ' créditos usados este mes.';
+    }
+  } catch (err) {
+    msg += '\n\n' + err.message;
+  }
+  ui.alert('ElevenLabs', msg, ui.ButtonSet.OK);
 }
 
 function showHelp() {
@@ -99,24 +159,192 @@ function showHelp() {
 /** La app usa esto para “Test connection”. */
 function doGet() {
   const ss = getSpreadsheet_();
-  return json_({ ok: true, app: APP_NAME, sheet: ss.getName() });
+  return json_({ ok: true, app: APP_NAME, sheet: ss.getName(), tts: Boolean(elevenKeyOrNull_()), version: 2 });
 }
 
-/** La app envía acá los resultados y las grabaciones. */
+/** La app envía acá los resultados, las grabaciones y los pedidos de voz. */
 function doPost(e) {
-  const lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) return json_({ ok: false, error: 'La planilla está ocupada, probá de nuevo.' });
   try {
     const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    if (data.type === 'result') return json_(saveResult_(data));
-    if (data.type === 'recording') return json_(saveRecording_(data));
+    if (data.type === 'tts') return json_(tts_(data));
+    if (data.type === 'voices') return json_(voices_());
+    if (data.type === 'result') return json_(withLock_(function () { return saveResult_(data); }));
+    if (data.type === 'recording') return json_(withLock_(function () { return saveRecording_(data); }));
     if (data.type === 'ping') return json_({ ok: true });
     return json_({ ok: false, error: 'Tipo de dato desconocido.' });
   } catch (err) {
     return json_({ ok: false, error: String((err && err.message) || err) });
+  }
+}
+
+function withLock_(fn) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error('La planilla está ocupada, probá de nuevo.');
+  try {
+    return fn();
   } finally {
     lock.releaseLock();
   }
+}
+
+// ─── Motor de voz (ElevenLabs) ──────────────────────────────────────────────
+
+/** Texto que se envía a ElevenLabs para cada modo (igual que ttsTextFor en la app). */
+function ttsText_(text, mode, model) {
+  if (mode !== 'words') return text;
+  const joiner = model.indexOf('eleven_v3') === 0 ? ' ... ' : ' <break time="0.35s"/> ';
+  return text.split(/\s+/).filter(Boolean).join(joiner);
+}
+
+function ttsBody_(text, mode, model) {
+  return {
+    text: ttsText_(text, mode, model),
+    model_id: model,
+    voice_settings: {
+      stability: 0.5,
+      similarity_boost: 0.75,
+      style: 0,
+      use_speaker_boost: true,
+      speed: TTS.speeds[mode],
+    },
+  };
+}
+
+function tts_(d) {
+  const key = elevenKey_();
+  const text = String(d.text || '').replace(/\s+/g, ' ').trim();
+  if (!text) throw new Error('Falta el texto.');
+  if (text.length > TTS.maxChars) throw new Error('El texto es demasiado largo (máx. ' + TTS.maxChars + ' caracteres).');
+  const mode = Object.prototype.hasOwnProperty.call(TTS.speeds, d.mode) ? d.mode : 'natural';
+  const model = TTS.models.indexOf(d.model) >= 0 ? d.model : TTS.defaultModel;
+  const voiceId = String(d.voiceId || '');
+  if (!/^[A-Za-z0-9]{8,40}$/.test(voiceId)) throw new Error('Voz inválida.');
+
+  const name = 'tts_' + digest_([voiceId, model, mode, text].join('|'));
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(name);
+  if (hit) return { ok: true, audio: hit, mime: 'audio/mpeg', cached: true };
+
+  const folder = audioFolder_();
+  const files = folder.getFilesByName(name + '.mp3');
+  if (files.hasNext()) {
+    const saved = Utilities.base64Encode(files.next().getBlob().getBytes());
+    putCache_(cache, name, saved);
+    return { ok: true, audio: saved, mime: 'audio/mpeg', cached: true };
+  }
+
+  reserveChars_(text.length);
+  const res = UrlFetchApp.fetch(
+    TTS.api + '/text-to-speech/' + encodeURIComponent(voiceId) + '?output_format=' + TTS.outputFormat,
+    {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'xi-api-key': key, Accept: 'audio/mpeg' },
+      payload: JSON.stringify(ttsBody_(text, mode, model)),
+      muteHttpExceptions: true,
+    },
+  );
+  if (res.getResponseCode() !== 200) throw new Error(elevenError_(res));
+  const blob = res.getBlob().setName(name + '.mp3');
+  folder.createFile(blob);
+  const audio = Utilities.base64Encode(blob.getBytes());
+  putCache_(cache, name, audio);
+  return { ok: true, audio: audio, mime: 'audio/mpeg', cached: false };
+}
+
+function voices_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('voices_v1');
+  let voices = hit ? JSON.parse(hit) : null;
+  if (!voices) {
+    const key = elevenKey_();
+    let res = UrlFetchApp.fetch(TTS.api + '/voices', { headers: { 'xi-api-key': key }, muteHttpExceptions: true });
+    if (res.getResponseCode() === 404 || res.getResponseCode() === 410) {
+      res = UrlFetchApp.fetch(TTS.api.replace('/v1', '/v2') + '/voices?page_size=100', {
+        headers: { 'xi-api-key': key },
+        muteHttpExceptions: true,
+      });
+    }
+    if (res.getResponseCode() !== 200) throw new Error(elevenError_(res));
+    voices = (JSON.parse(res.getContentText()).voices || []).map(function (v) {
+      const labels = v.labels || {};
+      return {
+        id: v.voice_id,
+        name: v.name,
+        accent: labels.accent || '',
+        gender: labels.gender || '',
+        age: labels.age || '',
+        description: labels.description || labels.descriptive || '',
+        category: v.category || '',
+        preview: v.preview_url || '',
+      };
+    });
+    const json = JSON.stringify(voices);
+    if (json.length < 100000) cache.put('voices_v1', json, TTS.cacheSeconds);
+  }
+  return { ok: true, voices: voices, usage: usage_() };
+}
+
+function elevenKeyOrNull_() {
+  return PropertiesService.getScriptProperties().getProperty('ELEVENLABS_API_KEY');
+}
+
+function elevenKey_() {
+  const key = elevenKeyOrNull_();
+  if (!key) throw new Error('El motor de voz no tiene API key de ElevenLabs (menú Connected Speech → Guardar API key).');
+  return key;
+}
+
+function elevenError_(res) {
+  let detail = '';
+  try {
+    const body = JSON.parse(res.getContentText());
+    detail = (body.detail && (body.detail.message || body.detail.status)) || (typeof body.detail === 'string' ? body.detail : '');
+  } catch (err) {
+    detail = res.getContentText().slice(0, 200);
+  }
+  return 'ElevenLabs ' + res.getResponseCode() + (detail ? ': ' + detail : '');
+}
+
+function dailyLimit_() {
+  const n = Number(PropertiesService.getScriptProperties().getProperty('ELEVENLABS_DAILY_LIMIT'));
+  return n > 0 ? n : TTS.dailyLimit;
+}
+
+function today_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function usage_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('TTS_USAGE');
+  const u = raw ? JSON.parse(raw) : {};
+  return { today: u.day === today_() ? u.chars : 0, limit: dailyLimit_() };
+}
+
+/** Suma los caracteres de hoy; corta si se pasa del límite diario. */
+function reserveChars_(n) {
+  withLock_(function () {
+    const props = PropertiesService.getScriptProperties();
+    const used = usage_().today;
+    if (used + n > dailyLimit_()) throw new Error('Se alcanzó el límite diario de voz. Probá mañana.');
+    props.setProperty('TTS_USAGE', JSON.stringify({ day: today_(), chars: used + n }));
+  });
+}
+
+function putCache_(cache, name, base64) {
+  if (base64.length < 100000) cache.put(name, base64, TTS.cacheSeconds);
+}
+
+function digest_(s) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, s, Utilities.Charset.UTF_8)
+    .map(function (b) {
+      return ('0' + (b & 255).toString(16)).slice(-2);
+    })
+    .join('');
+}
+
+function audioFolder_() {
+  return folder_('AUDIO_FOLDER_ID', APP_NAME + ' — Audio de ElevenLabs');
 }
 
 function saveResult_(d) {
@@ -323,8 +551,12 @@ function percentScale_(range) {
 }
 
 function recordingsFolder_() {
+  return folder_('FOLDER_ID', APP_NAME + ' — Grabaciones');
+}
+
+function folder_(property, name) {
   const props = PropertiesService.getScriptProperties();
-  const id = props.getProperty('FOLDER_ID');
+  const id = props.getProperty(property);
   if (id) {
     try {
       return DriveApp.getFolderById(id);
@@ -332,8 +564,8 @@ function recordingsFolder_() {
       // la carpeta se borró: se crea otra
     }
   }
-  const folder = DriveApp.createFolder(APP_NAME + ' — Grabaciones');
-  props.setProperty('FOLDER_ID', folder.getId());
+  const folder = DriveApp.createFolder(name);
+  props.setProperty(property, folder.getId());
   return folder;
 }
 

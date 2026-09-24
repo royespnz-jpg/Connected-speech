@@ -1,96 +1,86 @@
-import { MODELS, DEFAULT_VOICES } from '../audio-core.js';
-import { getSettings, manifestInfo } from '../tts.js';
+import { MODELS } from '../audio-core.js';
+import { getSettings, manifestInfo, scriptStatus, voiceName, voiceById } from '../tts.js';
 import { esc, playButton } from '../ui.js';
 import { isSheetUrl, pendingCount, studentLink } from '../sheets.js';
 
 export function renderSettings() {
   const s = getSettings();
   const m = manifestInfo();
+  const st = scriptStatus();
+  const engineText =
+    s.engine === 'browser'
+      ? 'Browser voice (ElevenLabs is off).'
+      : s.apiKey
+        ? 'ElevenLabs with your personal key.'
+        : st.status === 'ok'
+          ? `ElevenLabs through the Google Script${st.sheet ? ` of “${esc(st.sheet)}”` : ''}.`
+          : st.status === 'no-tts'
+            ? 'The Google Script is connected but has no ElevenLabs key yet (Connected Speech → Guardar API key de ElevenLabs).'
+            : st.status === 'offline'
+              ? `Can't reach the Google Script: ${esc(st.error || 'offline')}.`
+              : 'Checking the Google Script…';
   return `<header class="topic-head">
       <div class="eyebrow">Settings</div>
-      <h1>Results &amp; audio</h1>
-      <p class="lede">Connect a Google Sheet to collect results, and choose where the audio comes from: pre-generated
-        ElevenLabs clips, live ElevenLabs with your key, or your browser's built-in voice.</p>
+      <h1>Voice &amp; <em>results</em></h1>
+      <p class="lede">Pick the ElevenLabs voices, connect the teacher's Google Sheet, and fine-tune how audio is generated.</p>
     </header>
 
-    ${sheetForm(s)}
-
-    <section class="card" style="margin-bottom:18px">
-      <h2>Pre-generated audio</h2>
-      ${
-        m.count
-          ? `<dl class="kv"><dt>Clips</dt><dd>${m.count}</dd><dt>Model</dt><dd>${esc(m.model || '—')}</dd>
-             <dt>Voices</dt><dd class="ipa">${esc(Object.values(m.voices || {}).join(', ') || '—')}</dd>
-             <dt>Generated</dt><dd>${esc(m.generatedAt ? new Date(m.generatedAt).toLocaleString() : '—')}</dd></dl>`
-          : `<p class="muted">None yet. Run <code>npm run audio</code> locally, or the “Generate audio (ElevenLabs)” GitHub
-             Action, to create the clips once and serve them to everybody without exposing a key.</p>`
-      }
-    </section>
-
-    <form class="card form" id="settings-form" autocomplete="off">
-      <h2 style="margin:0">Live ElevenLabs voice</h2>
-      <div class="field">
-        <label for="api-key">ElevenLabs API key</label>
+    <div class="settings-stack">
+      <section class="card form">
+        <h2>Voice engine</h2>
+        <p class="muted" style="margin:0">${engineText}</p>
         <div class="row">
-          <input id="api-key" name="apiKey" type="password" value="${esc(s.apiKey)}" placeholder="sk_…" style="flex:1 1 240px" spellcheck="false">
-          <button type="button" class="btn" data-toggle-key>Show</button>
+          <div class="field" style="flex:1 1 180px"><label>Main voice</label><div class="vp-tab" aria-hidden="true" style="pointer-events:none"><span>${esc(voiceName('A'))}</span></div></div>
+          <div class="field" style="flex:1 1 180px"><label>Second speaker</label><div class="vp-tab" aria-hidden="true" style="pointer-events:none"><span>${esc(voiceName('B'))}</span></div></div>
         </div>
-        <div class="hint">Saved only in this browser (localStorage) and sent only to api.elevenlabs.io. Don't use it on a shared
-          computer. For a public site, prefer pre-generated audio.</div>
-      </div>
-      <div class="field">
-        <label for="model">Model</label>
-        <select id="model" name="model">${MODELS.map((o) => `<option value="${o.id}"${o.id === s.model ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
-      </div>
-      <div class="field">
-        <label for="voiceA">Voice A (examples, female speakers)</label>
-        <input id="voiceA" name="voiceA" type="text" value="${esc(s.voiceA)}" list="voice-list" spellcheck="false">
-        <div class="hint">Default: Sarah <code>${DEFAULT_VOICES.A}</code></div>
-      </div>
-      <div class="field">
-        <label for="voiceB">Voice B (second speaker in dialogues)</label>
-        <input id="voiceB" name="voiceB" type="text" value="${esc(s.voiceB)}" list="voice-list" spellcheck="false">
-        <div class="hint">Default: Brian <code>${DEFAULT_VOICES.B}</code></div>
-      </div>
-      <datalist id="voice-list"></datalist>
-      <label class="check"><input type="checkbox" name="preferLive"${s.preferLive ? ' checked' : ''}>
-        <span>Always use the live voice (ignore pre-generated clips) — uses credits for every new clip.</span></label>
-      <div class="row">
-        <button type="submit" class="btn primary">Save</button>
-        <button type="button" class="btn" data-load-voices>Load my voices</button>
-        <button type="button" class="btn" data-check-credits>Check credits</button>
-        <button type="button" class="btn" data-clear-cache>Clear audio cache</button>
-      </div>
-      <div id="voices-out"></div>
-      <div id="credits-out"></div>
-    </form>
+        <div class="row">
+          <button type="button" class="btn primary" data-open-voices>Choose voices</button>
+          ${playButton('Did you eat your lunch yet?', { label: 'Main voice' })}
+          ${playButton("Who's there?", { voice: 'B', label: 'Second speaker' })}
+        </div>
+        <div class="field">
+          <label for="model">ElevenLabs model</label>
+          <select id="model" data-model>${MODELS.map((o) => `<option value="${o.id}"${o.id === s.model ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>
+          <div class="hint">Multilingual v2 sounds best. Flash and Turbo cost half the credits.</div>
+        </div>
+      </section>
 
-    <section class="card" style="margin-top:18px">
-      <h2>Test</h2>
-      <div class="row">
-        ${playButton('Did you eat your lunch yet?', { main: true, label: 'Voice A' })}
-        ${playButton("Who's there?", { voice: 'B', label: 'Voice B' })}
-      </div>
-    </section>`;
-}
+      ${sheetForm(s)}
 
-export function renderVoices(voices) {
-  const list = document.getElementById('voice-list');
-  const out = document.getElementById('voices-out');
-  if (!list || !out) return;
-  list.innerHTML = voices.map((v) => `<option value="${esc(v.id)}">${esc(`${v.name} · ${v.accent} ${v.gender}`)}</option>`).join('');
-  const american = voices.filter((v) => /americ/i.test(v.accent));
-  const show = (american.length ? american : voices).slice(0, 30);
-  out.innerHTML = `<p class="muted" style="margin:0 0 6px">${voices.length} voices. ${american.length ? 'American voices:' : ''}</p>
-    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Accent</th><th>Gender</th><th>ID</th><th></th></tr></thead><tbody>
-    ${show
-      .map(
-        (v) => `<tr><td>${esc(v.name)}</td><td>${esc(v.accent)}</td><td>${esc(v.gender)}</td><td><code>${esc(v.id)}</code></td>
-        <td><button type="button" class="pbtn" data-use-voice="${esc(v.id)}" data-slot="A">Use as A</button>
-            <button type="button" class="pbtn" data-use-voice="${esc(v.id)}" data-slot="B">Use as B</button></td></tr>`,
-      )
-      .join('')}
-    </tbody></table></div>`;
+      <details class="card">
+        <summary>Your own ElevenLabs key <span class="muted" style="font-size:1rem">(optional)</span></summary>
+        <form class="form" id="settings-form" autocomplete="off">
+          <p class="muted" style="margin:0">Normally the Google Script generates the voices and keeps the key private. Add a key
+            here only to use your own ElevenLabs account from this browser.</p>
+          <div class="field">
+            <label for="api-key">ElevenLabs API key</label>
+            <div class="row">
+              <input id="api-key" name="apiKey" type="password" value="${esc(s.apiKey)}" placeholder="sk_…" style="flex:1 1 240px" spellcheck="false" autocomplete="off">
+              <button type="button" class="btn" data-toggle-key>Show</button>
+            </div>
+            <div class="hint">Saved only in this browser and sent only to api.elevenlabs.io. Don't use it on a shared computer.</div>
+          </div>
+          <div class="row">
+            <button type="submit" class="btn primary">Save</button>
+            <button type="button" class="btn" data-check-credits>Check credits</button>
+            <button type="button" class="btn" data-clear-cache>Clear audio cache</button>
+          </div>
+          <div id="credits-out"></div>
+        </form>
+      </details>
+
+      <details class="card">
+        <summary>Pre-generated audio <span class="muted" style="font-size:1rem">(optional)</span></summary>
+        ${
+          m.count
+            ? `<dl class="kv"><dt>Clips</dt><dd>${m.count}</dd><dt>Model</dt><dd>${esc(m.model || '—')}</dd>
+               <dt>Voices</dt><dd>${esc(m.voices.map((id) => voiceById(id)?.name || id).join(', ') || '—')}</dd>
+               <dt>Generated</dt><dd>${esc(m.generatedAt ? new Date(m.generatedAt).toLocaleString() : '—')}</dd></dl>`
+            : `<p class="muted" style="margin:0">Not needed: the Google Script generates each clip the first time and keeps it in
+               Drive. If you want static mp3 files anyway, run <code>npm run audio</code>.</p>`
+        }
+      </details>
+    </div>`;
 }
 
 export function renderCredits(sub) {
@@ -108,8 +98,8 @@ export function renderCredits(sub) {
 function sheetForm(s) {
   const connected = isSheetUrl(s.sheetUrl);
   const pending = pendingCount();
-  return `<form class="card form" id="sheet-form" autocomplete="off" style="margin-bottom:18px">
-      <h2 style="margin:0">Results → Google Sheets</h2>
+  return `<form class="card form" id="sheet-form" autocomplete="off">
+      <h2>Results → Google Sheets</h2>
       <p class="muted" style="margin:0">Finished exercises (and recordings you choose to send) go to your teacher's Google
         Sheet. Teachers: set up the sheet with <code>google-apps-script/Code.gs</code> from the repository.</p>
       <div class="row">
@@ -119,7 +109,7 @@ function sheetForm(s) {
           <input id="group" name="group" type="text" maxlength="40" value="${esc(s.group)}"></div>
       </div>
       <div class="field">
-        <label for="sheet-url">Google Apps Script web app URL</label>
+        <label for="sheet-url">Google Script URL (results + voice engine)</label>
         <input id="sheet-url" name="sheetUrl" type="text" spellcheck="false" value="${esc(s.sheetUrl)}"
           placeholder="https://script.google.com/macros/s/…/exec">
         <div class="hint">${connected ? '✓ Connected. ' : ''}Students: your teacher gives you this (or a link that fills it in).</div>

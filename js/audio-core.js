@@ -10,6 +10,21 @@ export const DEFAULT_VOICES = {
   B: 'nPczCjzI2devNBz1zQrb', // Brian – male, American
 };
 
+// Shown in the voice picker until the real list of voices can be loaded
+// (from the teacher's Google Script or a personal key).
+export const PRESET_VOICES = [
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', accent: 'american', gender: 'female' },
+  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', accent: 'american', gender: 'female' },
+  { id: 'cgSgspJ2msm6clMCkdW9', name: 'Jessica', accent: 'american', gender: 'female' },
+  { id: 'XrExE9yKIg1WjnnlVkGX', name: 'Matilda', accent: 'american', gender: 'female' },
+  { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian', accent: 'american', gender: 'male' },
+  { id: 'cjVigY5qzO86Huf0OWal', name: 'Eric', accent: 'american', gender: 'male' },
+  { id: 'iP95p4xoKVk53GoZ742B', name: 'Chris', accent: 'american', gender: 'male' },
+  { id: 'TX3LPaxmHKxFdv7VPQ9H', name: 'Liam', accent: 'american', gender: 'male' },
+  { id: 'bIHbv24MWmeRgasZH58o', name: 'Will', accent: 'american', gender: 'male' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', accent: 'american', gender: 'male' },
+];
+
 export const MODELS = [
   { id: 'eleven_multilingual_v2', label: 'Multilingual v2 — best quality (1 credit/char)' },
   { id: 'eleven_flash_v2_5', label: 'Flash v2.5 — fast, half the credits' },
@@ -42,8 +57,9 @@ export function cyrb53(str, seed = 0) {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 }
 
-export function audioKey(text, mode = 'natural', voice = 'A') {
-  return cyrb53(`${voice}|${mode}|${text}`).toString(16).padStart(14, '0');
+// voiceId is the ElevenLabs voice ID, so clips of different voices can coexist.
+export function audioKey(text, mode = 'natural', voiceId = DEFAULT_VOICES.A) {
+  return cyrb53(`${voiceId}|${mode}|${text}`).toString(16).padStart(14, '0');
 }
 
 export function words(text) {

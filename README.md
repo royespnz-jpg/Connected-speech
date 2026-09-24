@@ -20,53 +20,28 @@ generado con **ElevenLabs**. Está basado en dos lecturas:
 
 Los diálogos (Bob y Marie, knock-knock jokes) usan **dos voces** distintas.
 
-## Cómo funciona el audio
+## Voces de ElevenLabs (motor de voz)
 
-Para cada clip, el sitio intenta en este orden:
+El audio se genera **en vivo desde la página** a través de tu Google Apps Script
+([`google-apps-script/Code.gs`](google-apps-script/Code.gs)): la API key de ElevenLabs queda guardada en el script,
+nunca en la página ni en el repo. Cada frase generada se guarda en una carpeta de tu Drive
+(*Connected Speech Lab — Audio de ElevenLabs*), así que la misma frase no se vuelve a pagar.
 
-1. **Audio pre-generado** (`audio/*.mp3` + `audio/manifest.json`), creado una sola vez con ElevenLabs. Es gratis para
-   quien visita el sitio y **no expone tu API key**. ← recomendado
-2. **ElevenLabs en vivo**, con la API key guardada en *Settings* (solo en ese navegador). Se usa para oraciones del Lab y
-   para lo que no esté pre-generado. Los clips quedan en caché para no gastar créditos dos veces.
-3. **La voz del navegador** (Web Speech API), si no hay nada de lo anterior.
+- **Elegir voces:** tocá el botón de voz arriba a la derecha (● ElevenLabs · Sarah). Ahí elegís ElevenLabs o la voz del
+  navegador, la **voz principal** y la **segunda voz** (la de los diálogos), con vista previa gratis de cada voz. Por
+  defecto muestra solo voces americanas.
+- **Límite diario:** para que nadie te gaste los créditos, el script corta a los 20.000 caracteres *nuevos* por día
+  (lo repetido no cuenta). Se cambia con la propiedad `ELEVENLABS_DAILY_LIMIT` del script.
+- **Modelo:** en *Settings* (Multilingual v2 por defecto; Flash/Turbo cuestan la mitad).
+- Si el script no responde, la página usa la voz del navegador y lo avisa.
 
-### Opción A — Generar el audio con GitHub Actions (sin instalar nada)
+La URL del script ya está configurada en [`js/config.js`](js/config.js).
 
-1. En GitHub: **Settings → Secrets and variables → Actions → New repository secret**
-   - Nombre: `ELEVENLABS_API_KEY` · Valor: tu API key de ElevenLabs
-2. (Opcional) En la pestaña **Variables**: `ELEVENLABS_VOICE_A`, `ELEVENLABS_VOICE_B`, `ELEVENLABS_MODEL`
-3. **Actions → Generate audio (ElevenLabs) → Run workflow**
-   - Primero dejalo con **dry_run = true** para ver cuántos créditos va a usar.
-   - Después corrélo con **dry_run = false**. Los mp3 se commitean solos al repo.
-4. Si ya tenés GitHub Pages activado, el sitio se vuelve a publicar automáticamente.
+<details><summary>Opcional: generar mp3 estáticos en vez de usar el script</summary>
 
-### Opción B — Generarlo en tu computadora
-
-```bash
-cp .env.example .env          # y pegá tu ELEVENLABS_API_KEY en .env (nunca lo subas)
-npm run audio:dry             # muestra cuántos créditos va a usar
-npm run audio -- --modes=natural
-git add audio && git commit -m "Add audio" && git push
-```
-
-Otros comandos: `npm run voices` (lista tus voces e IDs), `--limit=50` (generar de a poco), `--force` (regenerar todo
-con otra voz), `--prune` (borrar clips que ya no se usan). Solo se generan los clips que faltan, así que podés
-agregar ejemplos y volver a correrlo sin pagar dos veces.
-
-### Créditos estimados
-
-| Modos | Clips | Créditos (Multilingual v2) | Con Flash/Turbo v2.5 |
-| --- | ---: | ---: | ---: |
-| `natural` | 375 | ≈ 6.300 | ≈ 3.150 |
-| `slow` | 316 | ≈ 4.500 | ≈ 2.250 |
-| `words` | 187 | ≈ 12.800* | ≈ 6.400* |
-| todo | 878 | ≈ 23.600 | ≈ 11.800 |
-
-\* Estimación conservadora: incluye las etiquetas `<break>` que separan las palabras. El plan gratuito de ElevenLabs
-trae 10.000 créditos por mes, así que conviene empezar por `natural` y sumar `slow`/`words` después (o usar Flash).
-
-Voces por defecto (americanas, prediseñadas): **Sarah** `EXAVITQu4vr4xnSDxMaL` (voz A) y **Brian**
-`nPczCjzI2devNBz1zQrb` (voz B). Se cambian con las variables de arriba o desde *Settings* en el sitio.
+`npm run audio` (con `ELEVENLABS_API_KEY` en `.env`) o la Action *Generate audio (ElevenLabs)* generan los clips y los
+guardan en `audio/`. La página los usa si coinciden con la voz elegida. No hace falta para que todo funcione.
+</details>
 
 ## Resultados en Google Sheets (para docentes)
 
@@ -81,7 +56,8 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 | **Grabaciones** | Las grabaciones que el alumno elige enviar (“Send to my teacher”), con un link ▶ al audio en tu Drive |
 | **Alumno × Ejercicio** | La mejor nota de cada alumno en cada ejercicio, en forma de tabla |
 
-**Instalación (una sola vez):**
+**Instalación (una sola vez)** — si ya lo tenías instalado, pegá el `Code.gs` nuevo, ejecutá `setup` de nuevo (pide un
+permiso más, para conectarse a ElevenLabs) y hacé *Implementar → Administrar implementaciones → ✏ → Nueva versión*:
 
 1. Creá una planilla nueva (<https://sheets.new>) → **Extensiones → Apps Script**.
 2. Borrá lo que haya, pegá todo `Code.gs` y guardá.
@@ -90,8 +66,10 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 4. **Implementar → Nueva implementación → Aplicación web** · Ejecutar como: **Yo** · Quién tiene acceso:
    **Cualquier persona** → copiá la URL que termina en `/exec`.
 5. En la app: **Settings → Results → Google Sheets** → pegá la URL → *Test connection* → *Save*.
-6. Copiá el **Student link** que aparece ahí y compartilo: abre los ejercicios ya conectados a tu planilla. La primera vez
-   que el alumno termina un ejercicio le pide nombre y curso.
+6. En la planilla: menú **Connected Speech → Guardar API key de ElevenLabs** y pegá tu key (o en Apps Script:
+   ⚙ Configuración del proyecto → Propiedades del script → `ELEVENLABS_API_KEY`). *Estado de ElevenLabs* muestra el uso.
+7. Copiá el **Student link** que aparece en Settings y compartilo: abre los ejercicios ya conectados a tu planilla. La
+   primera vez que el alumno termina un ejercicio le pide nombre y curso.
 
 Detalles: si no hay conexión, el resultado queda guardado en el navegador y se reenvía después (la planilla ignora
 duplicados). Los textos que parecen fórmulas se guardan como texto. Si cambiás `Code.gs`, volvé a implementar con
@@ -113,6 +91,14 @@ npm test         # tests del analizador, del contenido y de los ejercicios
 
 No hay dependencias ni build: es HTML, CSS y JavaScript (módulos ES). Hace falta Node 20+ solo para los scripts.
 
+## Diseño
+
+Estilo “editorial acústico”: papel cálido con grano (o estudio nocturno en modo oscuro), tinta y un acento bermellón. El
+arco de enlace ‿ es la firma visual: se dibuja entre las palabras y late mientras suena el audio. Tipografías: Instrument
+Serif (títulos y ejemplos), Onest (texto), Gentium Book Plus (IPA) e IBM Plex Mono (etiquetas). Transiciones entre
+páginas con la View Transitions API, apariciones escalonadas al hacer scroll, ecualizador en el botón que suena, ondas en
+vivo en la portada, tema claro/oscuro, y todo respeta *reducir movimiento*.
+
 ## Estructura
 
 ```
@@ -121,7 +107,10 @@ css/styles.css          estilos (modo claro y oscuro)
 js/content.js           los 11 temas: reglas, tablas, ejemplos, diálogos
 js/exercises-data.js    los ejercicios y la corrección del dictado
 js/analyzer.js          el analizador del Lab (reglas basadas en la ortografía)
-js/tts.js               audio: pre-generado → ElevenLabs en vivo → voz del navegador
+js/tts.js               motor de voz: clip pre-generado → ElevenLabs (script o key propia) → voz del navegador
+js/voice-panel.js       el panel para elegir voces
+js/script-api.js        comunicación con el Google Apps Script
+js/config.js            URL del Google Apps Script
 js/audio-core.js        parámetros de ElevenLabs compartidos por el sitio y el script
 js/audio-items.js       lista de todos los clips que usa el sitio
 js/views/*.js           páginas: inicio, tema, práctica, lab, settings

@@ -13,9 +13,13 @@ export const icons = {
   stop: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
   arrowL: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 6.6 14 5.2 7.2 12l6.8 6.8 1.4-1.4L10 12z"/></svg>',
   arrowR: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 17.4 10 18.8l6.8-6.8L10 5.2 8.6 6.6 14 12z"/></svg>',
+  arrowUR: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15.6 15.6 7H9V5h10v10h-2V8.4L8.4 17z"/></svg>',
+  close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg>',
 };
 
-export function playButton(text, { mode = 'natural', voice = 'A', label, main = false } = {}) {
+const EQ = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+
+export function playButton(text, { mode = 'natural', voice = 'A', label, main = false, round = false } = {}) {
   const defaults = { natural: 'Play', slow: 'Slow', words: 'Word by word' };
   const icon = mode === 'slow' ? icons.slow : mode === 'words' ? icons.words : icons.play;
   const lbl = label ?? defaults[mode];
@@ -26,12 +30,12 @@ export function playButton(text, { mode = 'natural', voice = 'A', label, main = 
       : mode === 'slow'
         ? 'Slower connected speech'
         : 'Natural connected speech';
-  return `<button type="button" class="pbtn${main ? ' main' : ''}" data-play data-mode="${mode}" data-voice="${voice}"
-    data-text="${esc(text)}" title="${title}" aria-label="${esc(`${lbl || 'Play'}: ${text}`)}">${icon}${content}</button>`;
+  return `<button type="button" class="pbtn${main ? ' main' : ''}${round ? ' round' : ''}" data-play data-mode="${mode}" data-voice="${voice}"
+    data-text="${esc(text)}" title="${title}" aria-label="${esc(`${lbl || 'Play'}: ${text}`)}">${icon}${EQ}${content}</button>`;
 }
 
 export function audioButtons(text, { voice = 'A', words = true, slow = true } = {}) {
-  let html = playButton(text, { mode: 'natural', voice, main: true });
+  let html = playButton(text, { mode: 'natural', voice, main: true, round: true });
   if (slow) html += playButton(text, { mode: 'slow', voice });
   if (words && wordsModeAllowed(text)) html += playButton(text, { mode: 'words', voice });
   return html;
@@ -73,9 +77,9 @@ export function dialogueHtml(d) {
     .map((line) => {
       const text = exampleText(line);
       return `<li class="dlg-line voice-${line.voice || 'A'}">
-        <span class="who">${esc(line.who)}</span>
+        <span class="who" title="${esc(line.who)}"><span aria-hidden="true">${esc(line.who.slice(0, 1))}</span><span class="sr-only">${esc(line.who)}:</span></span>
         <span class="said">${renderMarkup(line.m)}${line.note ? `<small>${esc(line.note)}</small>` : ''}</span>
-        ${playButton(text, { voice: line.voice || 'A', label: '' })}
+        ${playButton(text, { voice: line.voice || 'A', label: '', round: true })}
       </li>`;
     })
     .join('');

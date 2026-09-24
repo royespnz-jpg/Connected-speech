@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { createHash } from 'node:crypto';
+import { ttsRequestBody, OUTPUT_FORMAT, MODES, MODELS } from '../js/audio-core.js';
 
 const code = readFileSync(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8');
 
@@ -91,9 +93,12 @@ class FakeSheet {
   setColumnWidth() {}
 }
 
-function makeEnv() {
+function makeEnv({ key = 'sk_test' } = {}) {
   const sheets = [new FakeSheet('Hoja 1')];
   const files = [];
+  const fetches = [];
+  const cache = new Map();
+  const driveAudio = new Map();
   const ss = {
     getSheetByName: (n) => sheets.find((s) => s.name === n) || null,
     insertSheet: (n, i) => {
@@ -109,7 +114,15 @@ function makeEnv() {
     getId: () => 'x',
     getSpreadsheetTimeZone: () => 'UTC',
   };
-  const props = new Map();
+  const props = new Map(key ? [['ELEVENLABS_API_KEY', key]] : []);
+  const response = (code, body, bytes) => ({
+    getResponseCode: () => code,
+    getContentText: () => (typeof body === 'string' ? body : JSON.stringify(body)),
+    getBlob: () => {
+      const blob = { bytes, name: '', setName(n) { this.name = n; return this; }, getBytes() { return this.bytes; } };
+      return blob;
+    },
+  });
   const ctx = {
     SpreadsheetApp: {
       getActiveSpreadsheet: () => ss,
@@ -128,11 +141,17 @@ function makeEnv() {
       getScriptProperties: () => ({ getProperty: (k) => props.get(k) ?? null, setProperty: (k, v) => props.set(k, v) }),
     },
     DriveApp: {
-      createFolder: () => ({
-        getId: () => 'folder1',
+      createFolder: (name) => ({
+        getId: () => name,
         createFile: (blob) => {
           files.push(blob);
+          if (/Audio/.test(name)) driveAudio.set(blob.name, blob);
           return { getUrl: () => `https://drive.google.com/file/d/f${files.length}` };
+        },
+        getFilesByName: (n) => {
+          const hit = driveAudio.get(n);
+          let done = !hit;
+          return { hasNext: () => !done, next: () => ((done = true), { getBlob: () => hit }) };
         },
       }),
       getFolderById: () => {
@@ -141,15 +160,44 @@ function makeEnv() {
     },
     Utilities: {
       base64Decode: (s) => Buffer.from(s, 'base64'),
+      base64Encode: (b) => Buffer.from(b).toString('base64'),
       newBlob: (bytes, mime, name) => ({ bytes, mime, name }),
-      formatDate: (d) => d.toISOString().slice(0, 16),
+      formatDate: (d, tz, fmt) => (fmt === 'yyyy-MM-dd' ? d.toISOString().slice(0, 10) : d.toISOString().slice(0, 16)),
+      computeDigest: (alg, str) => [...createHash('sha256').update(str).digest()].map((b) => (b > 127 ? b - 256 : b)),
+      DigestAlgorithm: { SHA_256: 'SHA_256' },
+      Charset: { UTF_8: 'UTF_8' },
+    },
+    Session: { getScriptTimeZone: () => 'UTC' },
+    CacheService: {
+      getScriptCache: () => ({
+        get: (k) => cache.get(k) ?? null,
+        put: (k, v) => cache.set(k, v),
+        remove: (k) => cache.delete(k),
+      }),
+    },
+    UrlFetchApp: {
+      fetch: (url, opts = {}) => {
+        fetches.push({ url, opts });
+        if (url.endsWith('/voices')) {
+          return response(200, {
+            voices: [
+              { voice_id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', labels: { accent: 'american', gender: 'female' }, category: 'premade', preview_url: 'https://x/p.mp3' },
+            ],
+          });
+        }
+        if (url.includes('/text-to-speech/')) {
+          if (url.includes('BADVOICE')) return response(404, { detail: { status: 'voice_not_found', message: 'Voice not found' } });
+          return response(200, '', Buffer.from('mp3:' + JSON.parse(opts.payload).text));
+        }
+        return response(404, 'nope');
+      },
     },
     Logger: { log() {} },
   };
   vm.createContext(ctx);
   vm.runInContext(code, ctx);
   const post = (obj) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(obj) } }).body);
-  return { ctx, ss, sheets, files, post };
+  return { ctx, ss, sheets, files, post, fetches, cache, props };
 }
 
 const result = (extra = {}) => ({
@@ -267,5 +315,71 @@ test('bad input is rejected with a message', () => {
   assert.equal(post({ type: 'recording', id: 'r', mimeType: 'text/html', audio: 'AA==' }).ok, false);
   const bad = JSON.parse(ctx.doPost({ postData: { contents: '{not json' } }).body);
   assert.equal(bad.ok, false);
-  assert.deepEqual(JSON.parse(ctx.doGet().body), { ok: true, app: 'Connected Speech Lab', sheet: 'Test sheet' });
+  assert.deepEqual(JSON.parse(ctx.doGet().body), { ok: true, app: 'Connected Speech Lab', sheet: 'Test sheet', tts: true, version: 2 });
+});
+
+// ─── voice engine ───────────────────────────────────────────────────────────
+
+test('the script builds the same ElevenLabs request as the app', () => {
+  const { ctx } = makeEnv();
+  assert.match(code, new RegExp(`outputFormat: '${OUTPUT_FORMAT}'`));
+  for (const model of MODELS.map((m) => m.id)) {
+    for (const mode of Object.keys(MODES)) {
+      const text = 'Did you eat your lunch yet?';
+      assert.deepEqual(JSON.parse(JSON.stringify(ctx.ttsBody_(text, mode, model))), ttsRequestBody(text, mode, model), `${model}/${mode}`);
+    }
+  }
+});
+
+test('tts generates once, then serves from cache and Drive', () => {
+  const { post, fetches, cache, props } = makeEnv();
+  const req = { type: 'tts', text: 'stay up', mode: 'words', voiceId: 'EXAVITQu4vr4xnSDxMaL', model: 'eleven_flash_v2_5' };
+  const first = post(req);
+  assert.equal(first.ok, true);
+  assert.equal(first.cached, false);
+  assert.equal(Buffer.from(first.audio, 'base64').toString(), 'mp3:stay <break time="0.35s"/> up');
+  const call = fetches.find((f) => f.url.includes('/text-to-speech/'));
+  assert.equal(call.url, `https://api.elevenlabs.io/v1/text-to-speech/EXAVITQu4vr4xnSDxMaL?output_format=${OUTPUT_FORMAT}`);
+  assert.equal(call.opts.headers['xi-api-key'], 'sk_test');
+  assert.equal(JSON.parse(call.opts.payload).model_id, 'eleven_flash_v2_5');
+  assert.equal(JSON.parse(props.get('TTS_USAGE')).chars, 7);
+
+  assert.equal(post(req).cached, true); // CacheService
+  cache.clear();
+  assert.equal(post(req).cached, true); // Drive
+  assert.equal(fetches.filter((f) => f.url.includes('/text-to-speech/')).length, 1);
+  assert.equal(JSON.parse(props.get('TTS_USAGE')).chars, 7);
+});
+
+test('tts validates input and enforces the daily limit', () => {
+  const { post, props } = makeEnv();
+  assert.equal(post({ type: 'tts', text: '', voiceId: 'EXAVITQu4vr4xnSDxMaL' }).ok, false);
+  assert.equal(post({ type: 'tts', text: 'x'.repeat(401), voiceId: 'EXAVITQu4vr4xnSDxMaL' }).ok, false);
+  assert.equal(post({ type: 'tts', text: 'hi', voiceId: '../../etc' }).ok, false);
+  const bad = post({ type: 'tts', text: 'hi', voiceId: 'BADVOICE123' });
+  assert.equal(bad.ok, false);
+  assert.match(bad.error, /404.*Voice not found/);
+  props.set('ELEVENLABS_DAILY_LIMIT', '10');
+  assert.equal(post({ type: 'tts', text: 'twelve chars', voiceId: 'EXAVITQu4vr4xnSDxMaL' }).ok, false);
+  assert.equal(post({ type: 'tts', text: 'short', voiceId: 'EXAVITQu4vr4xnSDxMaL' }).ok, true);
+  assert.match(post({ type: 'tts', text: 'again!', voiceId: 'EXAVITQu4vr4xnSDxMaL' }).error, /límite diario/);
+});
+
+test('voices are listed through the script and cached', () => {
+  const { post, fetches } = makeEnv();
+  const res = post({ type: 'voices' });
+  assert.equal(res.ok, true);
+  assert.deepEqual(res.voices[0], {
+    id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', accent: 'american', gender: 'female', age: '', description: '', category: 'premade', preview: 'https://x/p.mp3',
+  });
+  assert.deepEqual(res.usage, { today: 0, limit: 20000 });
+  post({ type: 'voices' });
+  assert.equal(fetches.filter((f) => f.url.endsWith('/voices')).length, 1);
+});
+
+test('without a key the voice engine says how to set it up', () => {
+  const { ctx, post } = makeEnv({ key: null });
+  assert.equal(JSON.parse(ctx.doGet().body).tts, false);
+  assert.match(post({ type: 'tts', text: 'hi', voiceId: 'EXAVITQu4vr4xnSDxMaL' }).error, /API key/);
+  assert.equal(post(result()).ok, true); // results still work
 });

@@ -116,7 +116,7 @@ function annotatedHtml(result) {
     const label = junctionLabel(primary);
     const linky = ['link-cv', 'resyllabification', 'glide', 'vv-smooth', 'flap', 'palatalization', 'h-drop'].includes(primary.type);
     const title = j.map((f) => `${TYPES[f.type].label}${f.result ? `: ${f.result}` : ''}`).join(' · ');
-    html += `<span class="jn t-${primary.type}" title="${esc(title)}">${linky ? '<span class="arc">‿</span>' : ' '}${
+    html += `<span class="jn t-${primary.type}" title="${esc(title)}">${linky ? '<span class="arc" aria-hidden="true"></span>' : ' '}${
       label ? `<span class="lab">${esc(label)}</span>` : ''
     }<span class="sr-only"> (${esc(title)}) </span></span>`;
   });
