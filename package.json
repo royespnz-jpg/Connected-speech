@@ -1,0 +1,17 @@
+{
+  "name": "connected-speech-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive connected speech (sandhi) lab with ElevenLabs audio, based on Celce-Murcia et al. ch. 5 and Prator & Robinett lesson 16.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "audio": "node scripts/generate-audio.mjs",
+    "audio:dry": "node scripts/generate-audio.mjs --dry-run",
+    "voices": "node scripts/generate-audio.mjs --list-voices",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

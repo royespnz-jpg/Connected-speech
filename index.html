@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connected Speech Lab</title>
+    <meta
+      name="description"
+      content="Hear, see and practice how English words run together: linking, assimilation, palatalization, deletion, weak forms and more — with natural ElevenLabs audio."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M7 18c3-6 6-6 9 0s6 6 9 0' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+      </button>
+      <a class="brand" href="#/">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" /><path d="M7 18c3-6 6-6 9 0s6 6 9 0" /></svg>
+        <span>Connected Speech <b>Lab</b></span>
+      </a>
+      <div class="topbar-right">
+        <a class="engine" id="engine" href="#/settings" title="Where the audio comes from — open Settings"></a>
+        <button class="icon-btn stop-btn" id="stop-btn" aria-label="Stop audio" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+        </button>
+      </div>
+    </header>
+    <div class="layout">
+      <nav class="sidebar" id="sidebar" aria-label="Sections"></nav>
+      <div class="scrim" id="scrim" hidden></div>
+      <main id="main" tabindex="-1"></main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>
