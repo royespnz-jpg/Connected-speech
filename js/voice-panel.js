@@ -91,6 +91,12 @@ function statusHtml(s) {
       text: `ElevenLabs through the Google Script${st.sheet ? ` of <b>${esc(st.sheet)}</b>` : ''}. The API key stays private.`,
     };
   }
+  if (st.status === 'old') {
+    return {
+      cls: 'warn',
+      text: 'The Google Script at this URL is the <b>old version</b> (results only, no voice engine). In the sheet: Extensions → Apps Script → paste the new <b>Code.gs</b> → run <b>setup</b> → Deploy → Manage deployments → ✏ → <b>New version</b>. Meanwhile the browser voice is used.',
+    };
+  }
   if (st.status === 'no-tts') {
     return {
       cls: 'warn',

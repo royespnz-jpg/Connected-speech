@@ -2,4 +2,9 @@
 // collects results and generates ElevenLabs audio without exposing the API key.
 // Visitors can change it in Settings; a student link (?sheet=…) also sets it.
 export const DEFAULT_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwlSYz3JvrGXV3LiYqQjntGQpbI8brgskV_xSFsyvGoBWExGKV58Ye2r9QAvFErrYxJhw/exec';
+  'https://script.google.com/macros/s/AKfycbzJ4ZgxuCBi051Q1zxDK73B1F-AQcG-iILeIEMvNmewj7CV6ZJw/exec';
+
+// Earlier defaults: browsers that saved one of these move to the current URL.
+export const OLD_SCRIPT_URLS = [
+  'https://script.google.com/macros/s/AKfycbwlSYz3JvrGXV3LiYqQjntGQpbI8brgskV_xSFsyvGoBWExGKV58Ye2r9QAvFErrYxJhw/exec',
+];
