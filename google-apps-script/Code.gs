@@ -30,6 +30,10 @@
  */
 
 const APP_NAME = 'Connected Speech Lab';
+// Si el script NO está dentro de la planilla (proyecto independiente), poné acá el ID de la
+// planilla donde guardar los resultados (lo que va entre /d/ y /edit en su URL).
+// Vacío = usa la planilla que contiene el script, o crea una nueva.
+const SPREADSHEET_ID = '';
 const HEADER_BG = '#0f766e';
 const MAX_TEXT = 1000;
 const MAX_ITEMS = 200;
@@ -103,7 +107,7 @@ function onOpen() {
 }
 
 function setElevenLabsKey() {
-  const ui = SpreadsheetApp.getUi();
+  const ui = SpreadsheetApp.getUi(); // solo desde la planilla; si no: ⚙ Configuración del proyecto → Propiedades del script
   const answer = ui.prompt(
     'API key de ElevenLabs',
     'Pegá tu API key (empieza con sk_). Queda guardada solo en este script: los alumnos no la ven.',
@@ -433,6 +437,7 @@ function saveRecording_(d) {
 // ─── Hojas ──────────────────────────────────────────────────────────────────
 
 function getSpreadsheet_() {
+  if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
   const active = SpreadsheetApp.getActiveSpreadsheet();
   if (active) return active;
   // Script independiente (no creado desde una planilla): usa/crea su propia planilla.

@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
 import { ttsRequestBody, OUTPUT_FORMAT, MODES, MODELS } from '../js/audio-core.js';
+import { readdirSync } from 'node:fs';
+import { splitCode, stripMarkers } from '../scripts/split-gs.mjs';
 
 const code = readFileSync(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8');
 
@@ -382,4 +384,17 @@ test('without a key the voice engine says how to set it up', () => {
   assert.equal(JSON.parse(ctx.doGet().body).tts, false);
   assert.match(post({ type: 'tts', text: 'hi', voiceId: 'EXAVITQu4vr4xnSDxMaL' }).error, /API key/);
   assert.equal(post(result()).ok, true); // results still work
+});
+
+test('the short parts in partes/ are up to date and add up to Code.gs', () => {
+  const dir = new URL('../google-apps-script/partes/', import.meta.url);
+  const files = readdirSync(dir).filter((f) => f.endsWith('.gs')).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)));
+  const parts = files.map((f) => stripMarkers(readFileSync(new URL(f, dir), 'utf8')));
+  assert.deepEqual(parts.map((p) => p.replace(/\n+$/, '')), splitCode(code).map((p) => p.replace(/\n+$/, '')), 'run: node scripts/split-gs.mjs');
+  for (const f of files) assert.ok(readFileSync(new URL(f, dir), 'utf8').split('\n').length <= 125, `${f} is too long`);
+  // Loading the parts one after another behaves like loading Code.gs.
+  const ctx = vm.createContext({});
+  for (const p of parts) vm.runInContext(p, ctx);
+  assert.equal(typeof ctx.doPost, 'function');
+  assert.equal(typeof ctx.getSpreadsheet_, 'function');
 });

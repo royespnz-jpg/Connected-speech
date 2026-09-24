@@ -56,6 +56,11 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 | **Grabaciones** | Las grabaciones que el alumno elige enviar (“Send to my teacher”), con un link ▶ al audio en tu Drive |
 | **Alumno × Ejercicio** | La mejor nota de cada alumno en cada ejercicio, en forma de tabla |
 
+> **¿El editor no te deja pegar todo el código?** Usá las 6 partes cortas de
+> [`google-apps-script/partes/`](google-apps-script/partes/): pegá la parte 1 en `Código.gs` (reemplazando todo) y
+> cada una de las otras en un archivo nuevo (**+ → Secuencia de comandos**). Cada parte termina con
+> `// ── fin de la parte N de 6 ──`: si no ves esa línea al final, se cortó al pegar.
+
 **Instalación (una sola vez)** — si ya lo tenías instalado, pegá el `Code.gs` nuevo, ejecutá `setup` de nuevo (pide un
 permiso más, para conectarse a ElevenLabs) y hacé *Implementar → Administrar implementaciones → ✏ → Nueva versión*:
 
