@@ -67,6 +67,15 @@ function date_(value) {
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
+/** Última fila con “ID intento” (columna J); las casillas vacías no cuentan. */
+function lastRowWithId_(sheet) {
+  const last = sheet.getLastRow();
+  if (last < 2) return 1;
+  const ids = sheet.getRange(1, 10, last, 1).getValues();
+  for (let r = ids.length - 1; r >= 1; r--) if (String(ids[r][0]).trim() !== '') return r + 1;
+  return 1;
+}
+
 function exists_(sheet, column, id) {
   const last = sheet.getLastRow();
   if (last < 2) return false;

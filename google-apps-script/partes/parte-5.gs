@@ -40,7 +40,11 @@ function ensureSheet_(ss, def) {
     }
   }
   if (def === SHEETS.answers) {
-    sheet.getRange('I2:I').setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+    // Las casillas se agregan fila por fila al guardar. Una casilla en toda la columna llena las
+    // filas vacías con FALSE y las respuestas terminarían guardándose desde la fila 1001.
+    const used = lastRowWithId_(sheet);
+    const extra = sheet.getMaxRows() - used;
+    if (extra > 0) sheet.getRange(used + 1, 9, extra, 1).clearDataValidations().clearContent();
     if (!sheet.getConditionalFormatRules().length) {
       sheet.setConditionalFormatRules([
         SpreadsheetApp.newConditionalFormatRule()

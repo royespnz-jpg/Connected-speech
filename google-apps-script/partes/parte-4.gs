@@ -79,7 +79,9 @@ function saveResult_(d) {
         id,
       ];
     });
-    answers.getRange(answers.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    const start = lastRowWithId_(answers) + 1;
+    answers.getRange(start, 1, rows.length, rows[0].length).setValues(rows);
+    answers.getRange(start, 9, rows.length, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
   }
   return { ok: true, saved: items.length };
 }

@@ -27,6 +27,20 @@ class FakeRange {
   setValue(v) {
     return this.setValues([[v]]);
   }
+  getValues() {
+    return Array.from({ length: this.rows }, (_, r) =>
+      Array.from({ length: this.cols }, (_, c) => this.sheet.get(this.row + r, this.col + c) ?? ''),
+    );
+  }
+  clearContent() {
+    for (let r = 0; r < this.rows; r++)
+      for (let c = 0; c < this.cols; c++) if (this.sheet.get(this.row + r, this.col + c) !== undefined) this.sheet.set(this.row + r, this.col + c, undefined);
+    this.sheet.trim();
+    return this;
+  }
+  clearDataValidations() {
+    return this;
+  }
   setFormula(f) {
     this.sheet.formulas[this.a1 || `${this.row},${this.col}`] = f;
     return this;
@@ -83,6 +97,12 @@ class FakeSheet {
   }
   getLastRow() {
     return this.data.length;
+  }
+  getMaxRows() {
+    return Math.max(1000, this.data.length);
+  }
+  trim() {
+    while (this.data.length && this.data[this.data.length - 1].every((v) => v === undefined || v === '')) this.data.pop();
   }
   getConditionalFormatRules() {
     return this.rules;
@@ -397,4 +417,21 @@ test('the short parts in partes/ are up to date and add up to Code.gs', () => {
   for (const p of parts) vm.runInContext(p, ctx);
   assert.equal(typeof ctx.doPost, 'function');
   assert.equal(typeof ctx.getSpreadsheet_, 'function');
+});
+
+test('empty checkbox cells (FALSE) do not push answers down to row 1001', () => {
+  const { ctx, ss, post } = makeEnv();
+  ctx.setup();
+  const answers = ss.getSheetByName('Respuestas');
+  // What Google Sheets did with a whole-column checkbox: FALSE in every empty row.
+  for (let r = 2; r <= 1000; r++) answers.set(r, 9, false);
+  ctx.setup(); // repairs the column
+  assert.equal(answers.getLastRow(), 1);
+  post(result());
+  assert.equal(answers.data[1][9], 'attempt-1');
+  assert.equal(answers.getLastRow(), 3);
+  // Still works if the FALSE cells are there when a result arrives.
+  for (let r = 4; r <= 1000; r++) answers.set(r, 9, false);
+  post(result({ id: 'attempt-2' }));
+  assert.equal(answers.data[3][9], 'attempt-2');
 });
