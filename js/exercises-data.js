@@ -228,8 +228,8 @@ const readingSets = [
 
 // Listed in this order on the practice page; the Session VI sets come first.
 export const exerciseGroups = [
-  { id: 'pp36', kicker: 'Session VI · Pronunciation Plus', title: 'Unit 36 · Sounds that link words: /w/ and /y/', short: 'Unit 36 · /w/ and /y/ links' },
-  { id: 'pp37', kicker: 'Session VI · Pronunciation Plus', title: 'Unit 37 · Short sounds and disappearing /h/', short: 'Unit 37 · Short sounds, lost /h/' },
+  { id: 'pplus', kicker: 'Session VI · Practices 2', title: 'Pronunciation Plus · Units 36–37', short: 'Pronunciation Plus 36–37' },
+  { id: 'pairs', kicker: 'Session VI · Practices 3', title: 'Pronunciation Pairs', short: 'Pronunciation Pairs' },
   { id: 'readings', kicker: 'From the readings', title: 'Celce-Murcia et al. · Prator & Robinett' },
 ];
 
@@ -243,7 +243,10 @@ export function itemSay(set, item) {
     const form = item.options[item.answer];
     return item.s.replace('___', SPOKEN[form] || form);
   }
-  if (set.type === 'gap') return item.b.replace('___', item.answer);
+  if (set.type === 'gap') {
+    let k = 0;
+    return item.b.replace(/___/g, () => item.answer[k++]);
+  }
   if (item.m) return spokenText(item.after || item.m);
   return item.say || null;
 }
@@ -263,17 +266,28 @@ export function hLineText(text) {
   return text.replace(/\{\^?([^}]+)\}/g, '$1');
 }
 
+// The text of a pick set: a passage, or one sentence per line.
+export function pickText(set) {
+  return set.passage || set.lines.join(' ');
+}
+
+// Each answer word counts as often as it appears (a word can link in two sentences).
+export function pickTargets(set) {
+  const answers = new Set(set.answers);
+  return (pickText(set).toLowerCase().match(/[a-z]+/g) || []).filter((w) => answers.has(w)).length;
+}
+
 export function itemCount(set) {
-  if (set.type === 'pick') return set.answers.length;
+  if (set.type === 'pick') return pickTargets(set);
   if (set.type === 'hdrop') return hWords(set).length;
   if (set.type === 'repeat') return set.sections.reduce((n, s) => n + s.items.length, 0);
   return set.items.length;
 }
 
 // A gap answer is right if it is the missing word, ignoring case and punctuation.
-export function gapCorrect(item, typed) {
-  const norm = (w) => w.toLowerCase().replace(/[^a-z']/g, '');
-  return [item.answer, ...(item.accept || [])].some((a) => norm(a) === norm(typed));
+export function gapCorrect(expected, typed) {
+  const norm = (w) => String(w).toLowerCase().replace(/[^a-z']/g, '');
+  return norm(expected) === norm(typed);
 }
 
 export function itemOptions(set, item) {

@@ -16,7 +16,7 @@ generado con **ElevenLabs**. Está basado en dos lecturas:
 | **11 temas** | Contracciones y blends · Linking (los 5 contextos) · Asimilación (progresiva, regresiva, coalescente) · Palatalización · Deleción (síncopa, aféresis, /r/ que desaparece…) · Epéntesis y disimilación · Weak forms y consonantes silábicas · Las distintas *t* (flap, *t* que desaparece, twenty…ninety) · gonna/gotta/hasta/hafta/oughta/usta/wanna · Qué usar, qué reconocer y qué evitar · Ideas para enseñar (diálogo, knock-knock jokes, picture grid…) |
 | **316 ejemplos + 5 diálogos con audio** | Cada ejemplo tiene ▶ *Play* (conectado), *Slow* y *Word by word* (palabra por palabra, la versión “choppy”) para comparar, más **Record** para grabarte y comparar con el modelo |
 | **9 sets de ejercicios** | Nombrar el proceso · gonna vs. going to (Ej. F) · qué sonido palatalizado (Ej. G) · las *t* de twenty…ninety (Ej. I) · deleción de /t d/ · weak vs. strong forms · usar/reconocer/evitar · encontrar las palabras con síncopa (Ej. H) · dictado a velocidad real |
-| **Sesión VI · Pronunciation Plus (Units 36–37)** | 7 ejercicios en el orden del libro: *Brian's birthday* (escuchar la conversación con dos voces y responder) · repetir los enlaces /w/ y /y/ · ¿/w/ o /y/? · cinco conversaciones cortas · sílabas iniciales cortas (completar la palabra que falta) · la /h/ que desaparece (tocar las palabras) · decir las conversaciones y grabarse |
+| **Sesión VI** | Solo las prácticas que tienen audio en la carpeta de la profe, en el orden del libro, con las respuestas comprobadas contra las grabaciones. *Pronunciation Plus* 36–37 (pistas 04–10): repetir enlaces /w/ y /y/ · ¿/w/ o /y/? · sílabas iniciales cortas (completar) · la /h/ que desaparece. *Pronunciation Pairs*: enlazar /ow/ · conversaciones mezcladas · gonna · useta · /h/ que se pierde · the y than débiles |
 | **Connected Speech Lab** | Escribís cualquier oración y marca linking, glides, palatalización, asimilación, deleción, flaps, reducciones (gonna, wanna…) y weak forms; después la escuchás y te grabás |
 
 Los diálogos (Bob y Marie, knock-knock jokes) usan **dos voces** distintas.
@@ -61,6 +61,12 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 > [`google-apps-script/partes/`](google-apps-script/partes/): pegá la parte 1 en `Código.gs` (reemplazando todo) y
 > cada una de las otras en un archivo nuevo (**+ → Secuencia de comandos**). Cada parte termina con
 > `// ── fin de la parte N de 6 ──`: si no ves esa línea al final, se cortó al pegar.
+
+> **Audios del libro (Sesión VI).** [`google-apps-script/Transcribir.gs`](google-apps-script/Transcribir.gs) va en un
+> archivo aparte del mismo proyecto. `listarArchivosDelLibro` anota cada archivo de la carpeta de la Sesión VI con su
+> ID en la hoja **Audios del libro** (sin costo). Con esos IDs, cada práctica muestra la grabación original del libro
+> desde el Drive, que solo pueden escuchar quienes tienen acceso a la carpeta; las pistas no se copian al sitio.
+> `transcribirAudiosDelLibro` además las transcribe con ElevenLabs Speech to Text.
 
 **Instalación (una sola vez)** — si ya lo tenías instalado, pegá el `Code.gs` nuevo, ejecutá `setup` de nuevo (pide un
 permiso más, para conectarse a ElevenLabs) y hacé *Implementar → Administrar implementaciones → ✏ → Nueva versión*:

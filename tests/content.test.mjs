@@ -13,8 +13,8 @@ import {
   hWords,
   hLineText,
   gapCorrect,
+  pickText,
 } from '../js/exercises-data.js';
-import { hLinked } from '../js/exercises-pp.js';
 import { collectAudioItems } from '../js/audio-items.js';
 import { parseMarkup, spokenText, renderMarkup } from '../js/markup.js';
 import { audioKey, ttsTextFor } from '../js/audio-core.js';
@@ -61,7 +61,7 @@ test('exercise answers are valid', () => {
       continue;
     }
     if (set.type === 'pick') {
-      const words = new Set(set.passage.toLowerCase().match(/[a-z]+/g));
+      const words = new Set(pickText(set).toLowerCase().match(/[a-z]+/g));
       for (const a of set.answers) assert.ok(words.has(a), `${set.id}: ${a} not in passage`);
       continue;
     }
@@ -71,8 +71,8 @@ test('exercise answers are valid', () => {
         continue;
       }
       if (set.type === 'gap') {
-        assert.ok(item.b.includes('___') && item.answer, set.id);
-        assert.ok(itemSay(set, item).includes(item.answer), set.id);
+        assert.equal(item.b.split('___').length - 1, item.answer.length, `${set.id}: one answer per blank`);
+        for (const a of item.answer) assert.ok(itemSay(set, item).includes(a), set.id);
         continue;
       }
       if (item.m) assert.ok(!/[_[\]*]/.test(itemSay(set, item)), `${set.id}: markup left in ${itemSay(set, item)}`);
@@ -92,21 +92,30 @@ test('every exercise set is listed under a group', () => {
   assert.equal(new Set(exerciseSets.map((s) => s.id)).size, exerciseSets.length);
 });
 
-test('Session VI: /w/ or /y/ answers and the lost /h/', () => {
-  const wy = exerciseSets.find((s) => s.id === 'pp36-wy');
+test('Session VI answers match the book recordings', () => {
+  const set = (id) => exerciseSets.find((s) => s.id === id);
+  const wy = set('pp36-wy');
   for (const item of wy.items) {
     const glide = item.after.match(/_\[([wy])\]/)[1];
     assert.equal(wy.options[item.answer], `/${glide}/`, item.m);
   }
-  const pairs = exerciseSets.find((s) => s.id === 'pp36-pairs');
-  assert.equal(new Set(pairs.items.map((i) => i.answer)).size, pairs.items.length);
-  assert.equal(hLinked('Have they found {^him}?'), 'Have they found_(h)im?');
-  assert.equal(hLinked("{He} must {^have} left."), 'He must_(h)ave left.');
+  // Track 08: item 6 has two blanks, item 7 is "asleep".
+  const short = set('pp37-short');
+  assert.equal(itemSay(short, short.items[5]), "Yes. It's about five minutes away.");
+  assert.equal(itemSay(short, short.items[6]), "Sorry, he's asleep right now.");
+  assert.ok(gapCorrect('across', ' Across. ') && !gapCorrect('across', 'cross'));
+  // Track 10: the /h/ is lost in exactly these words.
+  const lost = hWords(set('pp37-h')).filter((w) => w.drop).map((w) => w.word);
+  assert.deepEqual(lost, ['him', 'who', 'he', 'her', 'him', 'his', 'him', 'have', 'he', 'him']);
   assert.equal(hLineText('Did {^he} tell {^her}?'), 'Did he tell her?');
-  assert.equal(spokenText(hLinked('Did {^he} tell {^her}?')), 'Did he tell her?');
-  const short = exerciseSets.find((s) => s.id === 'pp37-short');
-  assert.ok(gapCorrect(short.items[0], ' Across. '));
-  assert.ok(!gapCorrect(short.items[0], 'cross'));
+  // Pronunciation Pairs: every sentence in practice 1 has one /ow/ link, and the replies are a one-to-one match.
+  const linking = set('pairs-linking');
+  assert.equal(itemCount(linking), linking.lines.length);
+  for (const m of linking.reveal) assert.equal((m.match(/_\[w\]/g) || []).length, 1, m);
+  const scrambled = set('pairs-scrambled');
+  assert.equal(new Set(scrambled.items.map((i) => i.answer)).size, scrambled.items.length);
+  assert.equal(scrambled.options[scrambled.items[0].answer], "No, I don't.");
+  assert.deepEqual(set('pairs-gonna').items.map((i) => i.answer), [1, 1, 0, 0]);
 });
 
 test('dictation checking accepts reduced spellings and contractions', () => {

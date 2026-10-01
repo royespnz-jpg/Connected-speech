@@ -435,3 +435,79 @@ test('empty checkbox cells (FALSE) do not push answers down to row 1001', () => 
   post(result({ id: 'attempt-2' }));
   assert.equal(answers.data[3][9], 'attempt-2');
 });
+
+test('Transcribir.gs lists the book folder and transcribes each audio once', () => {
+  const { ctx, sheets } = makeEnv();
+  const file = (id, name, type, size = 2048) => ({
+    getId: () => id,
+    getName: () => name,
+    getMimeType: () => type,
+    getSize: () => size,
+    getTargetId: () => 'real-track',
+    getBlob: () => ({ id }),
+  });
+  const iter = (items) => {
+    let i = 0;
+    return { hasNext: () => i < items.length, next: () => items[i++] };
+  };
+  const folder = (name, files, folders = []) => ({ getName: () => name, getFiles: () => iter(files), getFolders: () => iter(folders) });
+  const byId = {
+    t1: file('t1', 'Track 1.mp3', 'audio/mpeg'),
+    t10: file('t10', 'Track 10.mp3', 'audio/mpeg'),
+    bad: file('bad', 'Track 2.mp3', 'audio/mpeg'),
+    'real-track': file('real-track', 'Track 3.mp3', 'audio/mpeg'),
+  };
+  const tree = () =>
+    folder('Session VI', [], [
+      folder('2 PRONUNCIATION PLUS', [file('pdf', 'Units 36 and 37.pdf', 'application/pdf'), byId.t10, byId.t1, byId.bad]),
+      folder('3 PRONUNCIATION PAIRS', [file('sc', 'Track 3', 'application/vnd.google-apps.shortcut')]),
+    ]);
+  ctx.DriveApp = { getFolderById: tree, getFileById: (id) => byId[id] };
+  const stt = [];
+  ctx.UrlFetchApp = {
+    fetch: (url, opts) => {
+      stt.push({ url, opts });
+      if (opts.payload.file.id === 'bad') return { getResponseCode: () => 401, getContentText: () => '{"detail":"invalid key"}' };
+      const words = [
+        { text: 'Hi,', type: 'word', speaker_id: 'speaker_0' },
+        { text: ' ', type: 'spacing', speaker_id: 'speaker_0' },
+        { text: 'Ann!', type: 'word', speaker_id: 'speaker_0' },
+        { text: ' ', type: 'spacing', speaker_id: 'speaker_0' },
+        { text: '(laughs)', type: 'audio_event', speaker_id: 'speaker_1' },
+        { text: 'Hi.', type: 'word', speaker_id: 'speaker_1' },
+      ];
+      return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ text: 'Hi, Ann! Hi.', words }) };
+    },
+  };
+  vm.runInContext(readFileSync(new URL('../google-apps-script/Transcribir.gs', import.meta.url), 'utf8'), ctx);
+
+  // Listing only: every file with its ID, no Speech to Text calls.
+  assert.match(ctx.listarArchivosDelLibro(), /^5 archivos anotados \(4 audios\)/);
+  assert.equal(stt.length, 0);
+  assert.equal(sheets.find((s) => s.name === 'Audios del libro').data[1][7], 'pendiente');
+
+  const msg = ctx.transcribirAudiosDelLibro();
+  const sheet = sheets.find((s) => s.name === 'Audios del libro');
+  const rows = sheet.data.slice(1);
+  assert.deepEqual(
+    rows.map((r) => r[1]),
+    ['Track 1.mp3', 'Track 2.mp3', 'Track 10.mp3', 'Units 36 and 37.pdf', 'Track 3.mp3'],
+  );
+  assert.equal(rows[3][7], 'no es audio');
+  assert.equal(rows[0][5], 'Hi, Ann! Hi.');
+  assert.equal(rows[0][6], 'S1: Hi, Ann!\nS2: Hi.');
+  assert.match(rows[1][7], /^error: ElevenLabs 401/);
+  assert.equal(rows[4][0], 'Session VI/3 PRONUNCIATION PAIRS');
+  assert.equal(rows[4][2], 'real-track');
+  assert.equal(stt[0].url, 'https://api.elevenlabs.io/v1/speech-to-text');
+  assert.equal(stt[0].opts.headers['xi-api-key'], 'sk_test');
+  assert.equal(stt[0].opts.payload.model_id, 'scribe_v1');
+  assert.match(msg, /5 archivos · 3 audios transcritos ahora · 1 con error · listo/);
+
+  // A second run keeps the transcripts and only retries the one that failed.
+  stt.length = 0;
+  ctx.transcribirAudiosDelLibro();
+  assert.deepEqual(stt.map((s) => s.opts.payload.file.id), ['bad']);
+  assert.equal(sheet.data[1][5], 'Hi, Ann! Hi.');
+  assert.equal(sheet.data.length, 6);
+});
