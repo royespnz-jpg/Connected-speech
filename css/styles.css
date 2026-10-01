@@ -775,6 +775,9 @@ main:focus-visible {
 .badge.book::before {
   background: var(--c-glide);
 }
+.badge.pa::before {
+  background: var(--c-pal);
+}
 .btn {
   position: relative;
   display: inline-flex;
@@ -2346,6 +2349,42 @@ ul.bullets li::before {
 }
 
 /* the original book recording, from the teacher's Drive */
+.book-audio-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.book-audio-note svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: var(--c-glide);
+}
+.book-audio-note small {
+  margin-left: 6px;
+  opacity: 0.8;
+}
+.pick-lines {
+  margin: 0;
+  padding-left: 1.6em;
+}
+.pick-lines li::marker {
+  font-family: var(--f-mono);
+  font-size: 0.7em;
+  color: var(--accent-ink);
+}
+.reveal-h {
+  margin: 22px 0 0;
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: 1.4rem;
+}
+.examples-first {
+  margin-top: 0;
+}
 .book-audio {
   margin: 0 0 18px;
   border: 1px solid var(--line);

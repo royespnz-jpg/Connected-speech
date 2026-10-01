@@ -19,6 +19,10 @@ export const SOURCES = {
     short: 'Pronunciation Plus · U36–37',
     long: 'Hewings & Goldstein, Pronunciation Plus — Unit 36 “Sounds that link words: /w/ and /y/” and Unit 37 “Short sounds and disappearing /h/”',
   },
+  PA: {
+    short: 'Pronunciation Pairs',
+    long: 'Baker & Goldstein, Pronunciation Pairs (2nd ed.) — Units 12, 36, 40 and 42 and the gonna practice',
+  },
 };
 
 const ex = (m, ipa, note, extra = {}) => ({ m, ipa, note, ...extra });

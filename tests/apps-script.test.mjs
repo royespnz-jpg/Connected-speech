@@ -481,6 +481,11 @@ test('Transcribir.gs lists the book folder and transcribes each audio once', () 
   };
   vm.runInContext(readFileSync(new URL('../google-apps-script/Transcribir.gs', import.meta.url), 'utf8'), ctx);
 
+  // Listing only: every file with its ID, no Speech to Text calls.
+  assert.match(ctx.listarArchivosDelLibro(), /^5 archivos anotados \(4 audios\)/);
+  assert.equal(stt.length, 0);
+  assert.equal(sheets.find((s) => s.name === 'Audios del libro').data[1][7], 'pendiente');
+
   const msg = ctx.transcribirAudiosDelLibro();
   const sheet = sheets.find((s) => s.name === 'Audios del libro');
   const rows = sheet.data.slice(1);

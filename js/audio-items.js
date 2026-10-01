@@ -2,7 +2,7 @@
 // them once with ElevenLabs and the site can serve them as static files.
 
 import { topics } from './content.js';
-import { exerciseSets, itemSay, hLineText } from './exercises-data.js';
+import { exerciseSets, itemSay, hLineText, pickText } from './exercises-data.js';
 import { SPEAKER_VOICE } from './exercises-pp.js';
 import { spokenText } from './markup.js';
 import { DEFAULT_VOICES, audioKey, wordsModeAllowed } from './audio-core.js';
@@ -49,12 +49,14 @@ export function collectAudioItems(voices = DEFAULT_VOICES) {
 
   for (const set of exerciseSets) {
     const where = `practice/${set.id}`;
-    if (set.type === 'pick') add(set.passage, 'natural', 'A', where);
+    if (set.type === 'pick') add(pickText(set), 'natural', 'A', where);
     if (set.dialogue) addLines(set.dialogue.lines, where);
     for (const section of set.sections || []) {
       for (const it of section.items) addExample(typeof it === 'string' ? { m: it } : it, where);
     }
-    for (const m of [...(set.compare || []).flat(), ...(set.examples || [])]) addExample({ m }, where);
+    for (const e of [...(set.compare || []).flat(), ...(set.examples || []), ...(set.reveal || [])]) {
+      addExample(typeof e === 'string' ? { m: e } : e, where);
+    }
     for (const lines of set.conversations || []) {
       for (const [who, text] of lines) add(hLineText(text), 'natural', SPEAKER_VOICE[who] || 'A', where);
     }

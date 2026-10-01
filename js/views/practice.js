@@ -9,6 +9,7 @@ import {
   hWords,
   hLineText,
   gapCorrect,
+  pickText,
 } from '../exercises-data.js';
 import { SPEAKER_VOICE } from '../exercises-pp.js';
 import { SOURCES } from '../content.js';
@@ -101,6 +102,7 @@ export function renderPracticeSet(id) {
       <div class="row">${sourceBadges([set.source])}${set.book ? `<span class="badge book">${esc(set.book)}</span>` : ''}</div>
     </header>
     ${bookAudio(set.tracks)}
+    ${examplesSection(set)}
     ${
       scored
         ? `<div class="scorebar" data-scorebar data-set="${set.id}" data-total="${itemCount(set)}"
@@ -163,24 +165,38 @@ function choiceItems(set) {
     .join('')}</ol>`;
 }
 
-function pickPassage(set) {
-  const words = set.passage.split(/(\s+)/);
-  const html = words
+// Listen-and-repeat lines shown above any exercise.
+function examplesSection(set) {
+  if (!set.examples?.length) return '';
+  return `<section class="section examples-first"><h2>Listen and repeat</h2>
+    ${examplesList(set.examples.map((e) => (typeof e === 'string' ? { m: e } : e)))}</section>`;
+}
+
+function pickWords(text) {
+  return text
+    .split(/(\s+)/)
     .map((w) => {
       if (/^\s+$/.test(w)) return w;
-      const m = w.match(/^([A-Za-z]+)(.*)$/);
+      const m = w.match(/^([^A-Za-z]*)([A-Za-z]+)(.*)$/);
       if (!m) return esc(w);
-      return `<button type="button" class="pw" data-word="${esc(m[1].toLowerCase())}">${esc(m[1])}</button>${esc(m[2])}`;
+      return `${esc(m[1])}<button type="button" class="pw" data-word="${esc(m[2].toLowerCase())}">${esc(m[2])}</button>${esc(m[3])}`;
     })
     .join('');
+}
+
+function pickPassage(set) {
+  const html = set.lines
+    ? `<ol class="pick-lines">${set.lines.map((l) => `<li>${pickWords(l)}</li>`).join('')}</ol>`
+    : pickWords(set.passage);
   return `<div class="card">
-      <div class="row" style="margin-bottom:10px">${playButton(set.passage, { label: 'Listen to the passage' })}</div>
+      <div class="row" style="margin-bottom:10px">${playButton(pickText(set), { label: set.lines ? 'Listen to the sentences' : 'Listen to the passage' })}</div>
       <div class="passage" data-passage>${html}</div>
       <div class="row" style="margin-top:14px">
         <button type="button" class="btn primary" data-check-pick>Check</button>
         <span class="muted" data-pick-count>0 selected</span>
       </div>
       <div class="callout" data-pick-explain hidden><p>${set.explain}</p></div>
+      ${set.reveal ? `<div data-pick-reveal hidden><h3 class="reveal-h">Listen, repeat and check</h3>${examplesList(set.reveal.map((m) => ({ m })))}</div>` : ''}
     </div>`;
 }
 
@@ -213,7 +229,7 @@ function gapItems(set) {
     .map((item, i) => {
       const id = `gap-${++gapSeq}`;
       const full = itemSay(set, item);
-      const b = esc(item.b).replace('___', '<span class="blank" data-blank>&nbsp;</span>');
+      const b = esc(item.b).replace(/___/g, '<span class="blank" data-blank>&nbsp;</span>');
       return `<li class="card item gap-item" data-item="${i}" id="${id}">
         <div class="item-q"><div class="q muted">Conversation ${i + 1}</div>
           <div class="row">
@@ -227,8 +243,13 @@ function gapItems(set) {
             <span class="said">${b}</span>${playButton(full, { voice: 'B', label: '', round: true })}</li>
         </ol>
         <form data-dict-form class="gap-form row">
-          <input class="dict-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
-            aria-label="Missing word in conversation ${i + 1}" placeholder="The missing word…">
+          ${item.answer
+            .map(
+              (_, k) => `<input class="dict-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+            aria-label="Missing word ${item.answer.length > 1 ? `${k + 1} ` : ''}in conversation ${i + 1}"
+            placeholder="${item.answer.length > 1 ? `Word ${k + 1}…` : 'The missing word…'}">`,
+            )
+            .join('')}
           <button class="btn" type="submit">Check</button>
         </form>
         <div class="feedback" data-feedback hidden></div>
@@ -250,9 +271,6 @@ function hdropLine(text) {
 }
 
 function hdropConversations(set) {
-  const examples = set.examples?.length
-    ? `<section class="section"><h2>Listen to these examples</h2>${examplesList(set.examples.map((m) => ({ m })))}</section>`
-    : '';
   const convs = set.conversations
     .map((lines, n) => {
       const id = `hd-${++hdSeq}`;
@@ -269,8 +287,7 @@ function hdropConversations(set) {
       </div>`;
     })
     .join('');
-  return `${examples}
-    <div class="hd-wrap" data-hd>
+  return `<div class="hd-wrap" data-hd>
       ${convs}
       <div class="row hd-check"><button type="button" class="btn primary" data-check-h>Check</button>
         <span class="muted" data-h-count>0 marked</span></div>
@@ -355,7 +372,7 @@ function collectAnswers(root, set) {
       return { n: i + 1, prompt: `Dictation ${i + 1}`, answer: el.dataset.typed || '', expected: item.answer, correct: el.dataset.result === 'ok' };
     }
     if (set.type === 'gap') {
-      return { n: i + 1, prompt: `${item.a} / ${item.b}`, answer: el.dataset.typed || '', expected: item.answer, correct: el.dataset.result === 'ok' };
+      return { n: i + 1, prompt: `${item.a} / ${item.b}`, answer: el.dataset.typed || '', expected: item.answer.join(' / '), correct: el.dataset.result === 'ok' };
     }
     const opts = itemOptions(set, item);
     return {
@@ -509,6 +526,8 @@ export function handlePracticeClick(target, root) {
       else if (right) b.classList.add('missed');
     });
     root.querySelector('[data-pick-explain]').hidden = false;
+    const reveal = root.querySelector('[data-pick-reveal]');
+    if (reveal) reveal.hidden = false;
     target.closest('[data-check-pick]').disabled = true;
     updateScore(root);
     return true;
@@ -529,9 +548,9 @@ export function handlePracticeSubmit(form, root) {
   const item = form.closest('.item');
   const set = setById(root.querySelector('[data-scorebar]').dataset.set);
   const data = set.items[Number(item.dataset.item)];
+  if (set.type === 'gap') return checkGap(root, item, form, data);
   const typed = form.querySelector('input').value;
   if (!typed.trim()) return;
-  if (set.type === 'gap') return checkGap(root, item, form, data, typed);
   const { ops, correct } = diffWords(data.answer, typed);
   item.dataset.typed = typed.trim();
   item.dataset.result = correct ? 'ok' : 'no';
@@ -545,19 +564,24 @@ export function handlePracticeSubmit(form, root) {
   updateScore(root);
 }
 
-function checkGap(root, item, form, data, typed) {
+function checkGap(root, item, form, data) {
   if (item.dataset.result) return;
-  const correct = gapCorrect(data, typed);
-  item.dataset.typed = typed.trim();
+  const typed = [...form.querySelectorAll('input')].map((el) => el.value.trim());
+  if (typed.some((t) => !t)) return;
+  const right = data.answer.map((a, k) => gapCorrect(a, typed[k]));
+  const correct = right.every(Boolean);
+  item.dataset.typed = typed.join(' / ');
   item.dataset.result = correct ? 'ok' : 'no';
   form.querySelectorAll('input, button').forEach((el) => (el.disabled = true));
-  const blank = item.querySelector('[data-blank]');
-  blank.textContent = data.answer;
-  blank.classList.add('filled');
+  item.querySelectorAll('[data-blank]').forEach((blank, k) => {
+    blank.textContent = data.answer[k];
+    blank.classList.add('filled');
+  });
+  const answer = data.answer.join(' … ');
   const fb = item.querySelector('[data-feedback]');
   fb.hidden = false;
   fb.innerHTML = `<span class="verdict ${correct ? 'ok' : 'no'}">${correct ? 'Correct!' : 'Not quite.'}</span>
-    <span>${correct ? '' : `You wrote “${esc(typed.trim())}”. `}It's <b>${esc(data.answer)}</b>
+    <span>${correct ? '' : `You wrote “${esc(typed.join(' … '))}”. `}It's <b>${esc(answer)}</b>
     <span class="ipa">${esc(data.ipa || '')}</span>: the first syllable is just a short /ə/.</span>`;
   updateScore(root);
 }

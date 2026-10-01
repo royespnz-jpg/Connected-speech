@@ -1,14 +1,16 @@
 // ── Connected Speech Lab · transcribir los audios del libro ──
 //
 // Archivo aparte: en el editor de Apps Script tocá ＋ → «Secuencia de comandos»,
-// llamalo Transcribir y pegá esto. Guardá, elegí la función
-// transcribirAudiosDelLibro en la barra de arriba y dale ▷ Ejecutar.
+// llamalo Transcribir y pegá esto. Guardá, elegí una función en la barra de
+// arriba y dale ▷ Ejecutar:
 //
-// Recorre la carpeta de la Sesión VI (con sus subcarpetas) y anota cada archivo
-// en la hoja «Audios del libro»: carpeta, nombre e ID. Los audios los transcribe
-// con ElevenLabs (Speech to Text), con la misma API key del motor de voz, y
-// separa lo que dice cada hablante. Así se pueden revisar las respuestas de los
-// ejercicios contra la grabación original.
+//   listarArchivosDelLibro      anota cada archivo de la carpeta de la Sesión VI
+//                               (con sus subcarpetas) en la hoja «Audios del libro»:
+//                               carpeta, nombre e ID. No gasta créditos. Con los IDs,
+//                               la app puede poner el audio del libro en cada práctica.
+//   transcribirAudiosDelLibro   lo mismo y además transcribe los audios con ElevenLabs
+//                               (Speech to Text, con la API key del motor de voz),
+//                               separando lo que dice cada hablante.
 //
 // Si son muchos audios se detiene antes del límite de 6 minutos de Google:
 // ejecutala otra vez y sigue con los que faltan (los ya transcritos no se repiten).
@@ -19,7 +21,15 @@ const BOOK_HEADERS = ['Carpeta', 'Archivo', 'ID', 'Tipo', 'KB', 'Transcripción'
 const BOOK_COL = { id: 3, text: 6, status: 8 };
 const BOOK_TIME_BUDGET_MS = 4.5 * 60 * 1000;
 
+function listarArchivosDelLibro() {
+  return bookRun_(false);
+}
+
 function transcribirAudiosDelLibro() {
+  return bookRun_(true);
+}
+
+function bookRun_(transcribe) {
   const started = Date.now();
   const sheet = bookSheet_();
 
@@ -51,7 +61,7 @@ function transcribirAudiosDelLibro() {
   let left = 0;
   let failed = 0;
   rows.forEach((row, i) => {
-    if (row[BOOK_COL.status - 1] !== 'pendiente') return;
+    if (!transcribe || row[BOOK_COL.status - 1] !== 'pendiente') return;
     if (Date.now() - started > BOOK_TIME_BUDGET_MS) {
       left++;
       return;
@@ -68,8 +78,10 @@ function transcribirAudiosDelLibro() {
     sheet.getRange(i + 2, BOOK_COL.text, 1, 4).setValues([out]);
   });
 
-  const msg =
-    files.length + ' archivos · ' + made + ' audios transcritos ahora' +
+  const audios = rows.filter((r) => r[BOOK_COL.status - 1] !== 'no es audio').length;
+  const msg = !transcribe
+    ? files.length + ' archivos anotados (' + audios + ' audios) en la hoja «' + BOOK_SHEET + '»'
+    : files.length + ' archivos · ' + made + ' audios transcritos ahora' +
     (failed ? ' · ' + failed + ' con error' : '') +
     (left ? ' · faltan ' + left + ': ejecutá la función otra vez' : ' · listo');
   Logger.log(msg);

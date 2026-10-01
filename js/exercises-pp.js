@@ -1,16 +1,21 @@
-// Session VI practice: Hewings & Goldstein, Pronunciation Plus, Units 36–37,
-// in the book's order. The audio is made with the app's voices; the Unit 36
-// conversation is rebuilt from the sentences the book takes from it.
+// Session VI practice, from the teacher's Drive folder "Session VI Connected Speech":
+//   Practices 2 — Hewings & Goldstein, Pronunciation Plus, Units 36–37 (tracks 04–10)
+//   Practices 3 — Baker & Goldstein, Pronunciation Pairs (practices 1, 5, 10, 11, 12)
+// Only exercises that come with a recording are included, in the book's order.
+// Answers and wording were checked against the recordings (speech recognition,
+// plus /h/-or-no-/h/ alignment for Unit 37 Ex. 4). The app's own voices read
+// every line; `tracks` names the book recording that goes with each set.
 //
 // Extra fields used by these sets:
-//   group     – which heading the set is listed under (see exerciseGroups)
-//   book      – unit and exercise numbers in the book
-//   dialogue  – (choice) a conversation to listen to before answering
-//   listenAfter – (choice) the audio is offered after answering, not before
+//   group, book   – heading on the practice page; unit and exercise in the book
+//   tracks        – [{ label, drive? }] the book recording; with a Drive file ID it is embedded
+//   examples      – listen-and-repeat lines shown above the exercise
+//   listenAfter   – (choice) the audio is offered after answering, not before
 //   item.m / item.after – (choice) the sentence in markup, before and after answering
 //   item.dialogue – (choice) a short conversation shown after answering
-//   sections  – (repeat) listen-and-repeat lists, no score
-//   compare   – (gap) word pairs to listen to before the gap fill
+//   lines, reveal – (pick) one sentence per line; linked versions shown after checking
+//   sections      – (repeat) listen-and-repeat lists, no score
+//   compare       – (gap) word pairs to listen to before the gap fill
 //   conversations – (hdrop) lines with {h-words}; {^word} marks a lost /h/
 
 import { renderMarkup } from './markup.js';
@@ -26,23 +31,13 @@ const wy = (m, glide, explain) => ({
   explain,
 });
 
-// Exercise 8: five two-line conversations made from the sentences in 6.
-const PAIRS = [
-  ['Hi,_[y]Ann!', 'Hi, how_[w]are you?'],
-  ['Did you see_[y]it?', "No,_[w]I didn't."],
-  ["There's no_[w]answer.", 'He must be_[y]at the office.'],
-  ['Can I try_[y]it?', 'Go_[w]ahead.'],
-  ['When can you do_[w]it?', 'Sunday_[y]afternoon.'],
-];
-const REPLY_ORDER = [3, 0, 4, 1, 2]; // replies listed in a fixed, mixed order
-const REPLIES = REPLY_ORDER.map((i) => PAIRS[i][1]);
-
-// Unit 37, exercise 4. A/B/C are the speakers; C uses the first voice again.
+// Unit 37, exercise 4 (track 10). A/B/C are the speakers; C uses the first voice again.
+// {^word}: the /h/ is lost in the recording.
 const H_CONVERSATIONS = [
   [
     ['A', '{Have} they found {^him}?'],
     ['B', '{Who}?'],
-    ['A', 'The man who robbed your {house}.'],
+    ['A', 'The man {^who} robbed your {house}.'],
   ],
   [
     ['A', 'Did {^he} tell {^her} what {happened}?'],
@@ -72,68 +67,27 @@ const H_CONVERSATIONS = [
 
 export const SPEAKER_VOICE = { A: 'A', B: 'B', C: 'A' };
 
-// "found {^him}" → "found_(h)im": the lost /h/ shown faded, linked to the word before.
-export function hLinked(line) {
-  return line.replace(/ \{\^h([a-z']+)\}/g, '_(h)$1').replace(/\{\^?([^}]+)\}/g, '$1');
-}
+// Pronunciation Pairs, practice 1, section F: A's lines and B's replies.
+const SCRAMBLED = [
+  ['Do you know_[w]everyone here?', "No,_[w]I don't."],
+  ['Hello. Can I speak to Joe?', "Sorry, Joe_[w]isn't home now."],
+  ['Is it OK if I take one?', 'Sure, go_[w]ahead.'],
+  ['Is the window_[w]open?', 'No,_[w]are you cold?'],
+  ['Did you call Joan?', 'Yes, but there was no_[w]answer.'],
+  ['Is there snow_[w]on the ground?', "No,_[w]it's only snowing a little."],
+  ['We can\'t go_[w]in yet.', "I know. It's so_[w]annoying."],
+];
+// B's column in the book's order.
+const SCRAMBLED_B = [2, 4, 0, 5, 3, 6, 1].map((i) => SCRAMBLED[i][1]);
+const plain = (m) => m.replace(/_\[[wy]\]/g, ' ').replace(/_/g, ' ');
 
 export const ppSets = [
-  {
-    id: 'pp36-birthday',
-    group: 'pp36',
-    book: 'Unit 36 · Ex. 1–3',
-    title: "Brian's birthday",
-    source: 'PP',
-    type: 'choice',
-    intro:
-      'Listen to Joe and Mary Ann planning a birthday and answer the questions. The text appears when you finish: look for the little /w/ and /y/ sounds that join the words.',
-    dialogue: {
-      title: 'Joe and Mary Ann',
-      lines: [
-        { who: 'Mary Ann', voice: 'A', m: "You know_[w]it's Brian's birthday_[y]on Thursday?" },
-        { who: 'Joe', voice: 'B', m: 'Oh,_[w]I forgot all about it! We should buy_[y](h)im a present.' },
-        { who: 'Mary Ann', voice: 'A', m: 'Do you have any_[y]ideas?' },
-        { who: 'Joe', voice: 'B', m: "What about a new_[w]umbrella? His old one's broken. He should just throw_[w]it away." },
-        {
-          who: 'Mary Ann',
-          voice: 'A',
-          m: "Good idea. It won't be too_[w]expensive. If we pay_[y]about twenty dollars, we could get him something nice.",
-        },
-        {
-          who: 'Joe',
-          voice: 'B',
-          m: "We really_[y]ought to have a party_[y]or something for him, too. Why don't we_[y]invite a few friends?",
-        },
-        { who: 'Mary Ann', voice: 'A', m: 'Great. What about Thursday_[y]evening?' },
-        { who: 'Joe', voice: 'B', m: 'He has an interview_[w]on Friday. More people will be free_[y]on Saturday.' },
-        { who: 'Mary Ann', voice: 'A', m: "Yeah, let's do_[w]it Saturday. You_[w]arrange the party, and I'll get the umbrella." },
-      ],
-    },
-    items: [
-      {
-        q: "When is Brian's birthday?",
-        options: ['On Thursday', 'On Friday', 'On Saturday'],
-        answer: 0,
-        explain: '“It’s Brian’s birthday on Thursday.”',
-      },
-      {
-        q: 'What present do they decide to get him?',
-        options: ['A book', 'A new umbrella', 'Tickets for a party'],
-        answer: 1,
-        explain: '“What about a new umbrella? His old one’s broken.”',
-      },
-      {
-        q: 'When are they going to have the party?',
-        options: ['Thursday evening', 'Friday', 'Saturday'],
-        answer: 2,
-        explain: 'Brian has an interview on Friday, and more people will be free on Saturday.',
-      },
-    ],
-  },
+  // ─── Practices 2 · Pronunciation Plus ────────────────────────────────────
   {
     id: 'pp36-repeat',
-    group: 'pp36',
+    group: 'pplus',
     book: 'Unit 36 · Ex. 4–5',
+    tracks: [{ label: 'Track 04 · Ex. 4 (/w/)' }, { label: 'Track 05 · Ex. 5 (/y/)' }],
     title: 'Repeat: /w/ and /y/ links',
     source: 'PP',
     type: 'repeat',
@@ -173,8 +127,9 @@ export const ppSets = [
   },
   {
     id: 'pp36-wy',
-    group: 'pp36',
+    group: 'pplus',
     book: 'Unit 36 · Ex. 6–7',
+    tracks: [{ label: 'Track 06 · Ex. 7' }],
     title: '/w/ or /y/?',
     source: 'PP',
     type: 'choice',
@@ -195,33 +150,15 @@ export const ppSets = [
     ],
   },
   {
-    id: 'pp36-pairs',
-    group: 'pp36',
-    book: 'Unit 36 · Ex. 8',
-    title: 'Five short conversations',
-    source: 'PP',
-    type: 'choice',
-    listenAfter: true,
-    intro: 'Match each line with the best reply. Then play the conversation and say it with a partner, linking the words.',
-    options: REPLIES.map((r) => r.replace(/_\[[wy]\]/g, ' ')),
-    items: PAIRS.map(([m, reply]) => ({
-      m,
-      answer: REPLIES.indexOf(reply),
-      dialogue: [
-        { who: 'A', voice: 'A', m },
-        { who: 'B', voice: 'B', m: reply },
-      ],
-    })),
-  },
-  {
     id: 'pp37-short',
-    group: 'pp37',
+    group: 'pplus',
     book: 'Unit 37 · Ex. 1–2',
+    tracks: [{ label: 'Track 07 · Ex. 1' }, { label: 'Track 08 · Ex. 2' }],
     title: 'Short first syllables',
     source: 'PP',
     type: 'gap',
     intro:
-      'Words like along, away and ago start with a very short, unstressed /ə/ that is easy to miss. Compare first, then listen to each conversation and write the missing word.',
+      'Words like along, away and ago start with a very short, unstressed /ə/ that is easy to miss. Compare first, then listen to each conversation and write the missing words.',
     compare: [
       ['long', "It's long."],
       ['*a*long', "It's *a*long here."],
@@ -229,41 +166,176 @@ export const ppSets = [
       ['*a*way', "I'm going *a*way."],
     ],
     items: [
-      { a: 'Where does she live?', b: 'Just ___ the street.', answer: 'across', ipa: '/əkrɔs/' },
-      { a: "Do you think I'm right?", b: 'Yes, I ___ completely.', answer: 'agree', ipa: '/əgriy/' },
-      { a: "Can't you sleep?", b: "No, I've been ___ for hours.", answer: 'awake', ipa: '/əweyk/' },
-      { a: 'When did you move here?', b: 'Two years ___.', answer: 'ago', ipa: '/əgow/' },
-      { a: "Don't you get lonely in that big house?", b: 'No, I like living ___.', answer: 'alone', ipa: '/əlown/' },
-      { a: 'Is the bank near here?', b: "Yes. It's ___ five minutes.", answer: 'about', ipa: '/əbawt/' },
-      { a: 'Can I speak to David?', b: "Sorry, he's ___ right now.", answer: 'away', ipa: '/əwey/' },
-      { a: 'Have you seen my keys?', b: "Yes, they're ___ here somewhere.", answer: 'around', ipa: '/ərawnd/' },
+      { a: 'Where does she live?', b: 'Just ___ the street.', answer: ['across'], ipa: '/əkrɔs/' },
+      { a: "Do you think I'm right?", b: 'Yes, I ___ completely.', answer: ['agree'], ipa: '/əgriy/' },
+      { a: "Can't you sleep?", b: "No, I've been ___ for hours.", answer: ['awake'], ipa: '/əweyk/' },
+      { a: 'When did you move here?', b: 'Two years ___.', answer: ['ago'], ipa: '/əgow/' },
+      { a: "Don't you get lonely in that big house?", b: 'No, I like living ___.', answer: ['alone'], ipa: '/əlown/' },
+      { a: 'Is the bank near here?', b: "Yes. It's ___ five minutes ___.", answer: ['about', 'away'], ipa: '/əbawt/ … /əwey/' },
+      { a: 'Can I speak to David?', b: "Sorry, he's ___ right now.", answer: ['asleep'], ipa: '/əsliyp/' },
+      { a: 'Have you seen my keys?', b: "Yes, they're ___ here somewhere.", answer: ['around'], ipa: '/ərawnd/' },
     ],
   },
   {
     id: 'pp37-h',
-    group: 'pp37',
+    group: 'pplus',
     book: 'Unit 37 · Ex. 3–5',
+    tracks: [{ label: 'Track 10 · Ex. 4' }],
     title: 'Disappearing /h/',
     source: 'PP',
     type: 'hdrop',
     intro:
-      'The /h/ at the start of some words is very short or not pronounced at all. Listen to each conversation and tap every h-word where the /h/ disappears.',
+      'The /h/ at the start of some words is very short or not pronounced at all. Listen to each conversation and tap every underlined word where the /h/ disappears.',
     examples: ['Does_(h)e like it?', "What's_(h)er name?"],
     conversations: H_CONVERSATIONS,
-    explain: `The words that change are <b>he, him, his, her</b> and <b>have</b>. When they are unstressed in the middle of a sentence, the /h/ disappears and the word links to the one before it: <i>${renderMarkup('found_(h)im')}, ${renderMarkup('tell_(h)er')}</i>. The /h/ stays at the start of a sentence (<i>He did…</i>) and when the word is stressed (<i>HIS book’s over there</i>). Content words like <i>house, Henry, heart, home, here</i> and <i>hope</i> always keep it.`,
+    explain: `The words that change are <b>he, him, his, her, have</b> and the <b>who</b> that joins two ideas (<i>the man who robbed…</i>). When they are unstressed in the middle of a sentence, the /h/ disappears and the word links to the one before it: <i>${renderMarkup('found_(h)im')}, ${renderMarkup('tell_(h)er')}</i>. The /h/ stays at the start of a sentence (<i>He did…</i>), in a question word on its own (<i>Who?</i>) and when the word is stressed (<i>HIS book’s over there</i>). Content words like <i>house, Henry, heart, home, here</i> and <i>hope</i> always keep it.`,
+  },
+
+  // ─── Practices 3 · Pronunciation Pairs ───────────────────────────────────
+  {
+    id: 'pairs-linking',
+    group: 'pairs',
+    book: 'Practice 1 · Unit 12 E',
+    title: 'Linking vowel sounds: /ow/',
+    source: 'PA',
+    type: 'pick',
+    intro:
+      'When /ow/ comes before another vowel sound, a /w/ links the two words: go‿out, throw‿it. Tap the word in each sentence whose /ow/ links to the next word, then check and listen.',
+    examples: ['go_[w]out', 'throw_[w]it'],
+    lines: [
+      'There was no answer.',
+      "No I don't.",
+      'Do you know everyone?',
+      'Sure, go ahead.',
+      'Is the window open?',
+      "It's so annoying.",
+      "We can't go in.",
+      'Is there snow on the ground?',
+      "Joe isn't home.",
+      'No, are you cold?',
+    ],
+    answers: ['no', 'know', 'go', 'window', 'so', 'snow', 'joe'],
+    reveal: [
+      'There was no_[w]answer.',
+      "No_[w]I don't.",
+      'Do you know_[w]everyone?',
+      'Sure, go_[w]ahead.',
+      'Is the window_[w]open?',
+      "It's so_[w]annoying.",
+      "We can't go_[w]in.",
+      'Is there snow_[w]on the ground?',
+      "Joe_[w]isn't home.",
+      'No,_[w]are you cold?',
+    ],
+    explain:
+      'Every sentence has one link: the word that ends in /ow/ (spelled o, ow, oe) joins the vowel that follows with a /w/. In <i>Joe isn’t home</i>, <i>home</i> doesn’t link: it ends in /m/.',
   },
   {
-    id: 'pp37-say',
-    group: 'pp37',
-    book: 'Unit 37 · Ex. 6',
-    title: 'Say the conversations',
-    source: 'PP',
+    id: 'pairs-scrambled',
+    group: 'pairs',
+    book: 'Practice 1 · Unit 12 F',
+    title: 'Scrambled conversations',
+    source: 'PA',
+    type: 'choice',
+    listenAfter: true,
+    intro: 'Student A says a line; which is B’s answer? Then play the conversation and say it with a partner, linking /ow/ with /w/.',
+    options: SCRAMBLED_B.map(plain),
+    items: SCRAMBLED.map(([m, reply]) => ({
+      m,
+      answer: SCRAMBLED_B.indexOf(reply),
+      dialogue: [
+        { who: 'A', voice: 'A', m },
+        { who: 'B', voice: 'B', m: reply },
+      ],
+    })),
+  },
+  {
+    id: 'pairs-gonna',
+    group: 'pairs',
+    book: 'Practice 5 · Gonna, sections E–F',
+    title: 'Gonna (going to)',
+    source: 'PA',
+    type: 'choice',
+    intro:
+      'In informal speech, going to is often said “gonna” when another verb follows it to show the future. When going is the main verb (going to a place), there is no “gonna”. Listen: which lines use “gonna”?',
+    examples: [
+      { m: 'When are they *going to* be in Chicago?', note: '“gonna”', say: 'When are they gonna be in Chicago?' },
+      { m: "They're *going to* go camping.", note: '“gonna”', say: "They're gonna go camping." },
+      { m: "They're going to Canada.", note: 'no “gonna”: going is the main verb' },
+    ],
+    options: ['“gonna”', 'No “gonna”'],
+    items: [
+      { q: 'A: Where are you <b>going</b> for vacation?', say: 'Where are you going for vacation?', answer: 1, explain: 'going is the main verb, and no verb follows.' },
+      { q: "B: I'm <b>going to</b> England.", say: "I'm going to England.", answer: 1, explain: 'going to a place: going is the main verb.' },
+      { q: 'A: What are you <b>going to</b> do in England?', say: 'What are you gonna do in England?', answer: 0, explain: 'going to + do: future → “gonna”.' },
+      { q: "B: I'm <b>going to</b> go to art galleries.", say: "I'm gonna go to art galleries.", answer: 0, explain: 'going to + go: future → “gonna” (the second to stays: go to art galleries).' },
+    ],
+  },
+  {
+    id: 'pairs-useta',
+    group: 'pairs',
+    book: 'Practice 10 · Unit 36 E',
+    tracks: [{ label: '10 Useta (used to) · Unit 36 E' }],
+    title: 'Useta (used to)',
+    source: 'PA',
+    type: 'repeat',
+    intro: 'Used to (a past habit) is usually said “useta”: the d disappears and to becomes a weak /tə/. Listen and repeat.',
+    sections: [
+      {
+        h: 'Listen and repeat',
+        items: [
+          { m: 'used to', note: '“useta”', ipa: '/yuwstə/' },
+          { m: 'He *used to* play the piano.', note: '“useta”' },
+          { m: 'Did you *use to* live in New York?', note: '“useta”' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'pairs-dropped-h',
+    group: 'pairs',
+    book: 'Practice 11 · Unit 40 E',
+    title: 'Dropped /h/',
+    source: 'PA',
     type: 'repeat',
     intro:
-      'Now say the conversations yourself. When the /h/ drops, link the word to the one before it, as in Have they found‿(h)im? Listen to each line, record yourself and compare.',
-    sections: H_CONVERSATIONS.map((lines, n) => ({
-      h: `Conversation ${n + 1}`,
-      items: lines.map(([who, line]) => ({ m: hLinked(line), note: who, voice: SPEAKER_VOICE[who] })),
-    })),
+      'He, his, him and her are usually unstressed. In the middle or at the end of a sentence their /h/ is often dropped, and the rest of the word links to the word before it. At the start of a sentence or after a pause, the /h/ is pronounced.',
+    sections: [
+      {
+        h: 'The /h/ is dropped',
+        items: [
+          { m: 'was_(h)e', note: 'sounds like “wuzzy”' },
+          'Was_(h)e hurt?',
+          'hit_(h)im',
+          'A vehicle hit_(h)im from behind.',
+        ],
+      },
+      {
+        h: 'The /h/ is pronounced',
+        items: ['He was in a car accident.', 'No, he was completely unharmed.'],
+      },
+    ],
+  },
+  {
+    id: 'pairs-weak-the',
+    group: 'pairs',
+    book: 'Practice 12 · Unit 42 F',
+    tracks: [{ label: '12 Weak pronunciations for the and than · Unit 42 F' }],
+    title: 'Weak the and than',
+    source: 'PA',
+    type: 'repeat',
+    intro: 'The and than are almost never stressed: the is /ðə/ and than is /ðən/, short and quick. Listen and repeat.',
+    sections: [
+      {
+        h: 'Listen and repeat',
+        items: [
+          { m: 'the one with the zipper', ipa: '/ðə wʌn wɪð ðə zɪpər/' },
+          'the others',
+          { m: 'better than the others', note: 'than = /ðən/' },
+          'Which jacket do you think is better than the others?',
+          'I think the one with the belt is better than the others.',
+        ],
+      },
+    ],
   },
 ];

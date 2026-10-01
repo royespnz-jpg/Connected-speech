@@ -91,12 +91,18 @@ export function dialogueHtml(d, { playLabel = 'Play all' } = {}) {
   </div>`;
 }
 
-// The original book recording, played from the teacher's Google Drive (only
-// people the file is shared with can hear it; nothing is copied to this site).
+// The original book recording. With a Drive file ID it plays from the teacher's
+// Google Drive (only people the file is shared with can hear it; nothing is
+// copied to this site); without one, the set just names the track.
 export function bookAudio(tracks = []) {
   if (!tracks.length) return '';
+  const linked = tracks.filter((t) => t.drive);
+  if (!linked.length) {
+    return `<p class="book-audio-note">${icons.play}<span>Book recording: ${tracks.map((t) => esc(t.label)).join(' · ')}
+      <small>in your teacher's Session VI folder</small></span></p>`;
+  }
   return `<details class="book-audio"><summary>${icons.play}<span>Original recording from the book</span></summary>
-    ${tracks
+    ${linked
       .map(
         (t) => `<figure><figcaption>${esc(t.label)}</figcaption>
         <iframe src="https://drive.google.com/file/d/${encodeURIComponent(t.drive)}/preview" title="${esc(t.label)}"
