@@ -54,7 +54,7 @@ export function exampleItem(ex) {
       ${ex.ipa ? `<span class="ex-ipa ipa">${esc(ex.ipa)}</span>` : ''}
       ${ex.note ? `<span class="ex-note">${esc(ex.note)}</span>` : ''}
     </div>
-    <div class="ex-actions">${audioButtons(text)}${recButton(text)}</div>
+    <div class="ex-actions">${audioButtons(text, { voice: ex.voice })}${recButton(text)}</div>
     <div class="rec-out" hidden></div>
   </li>`;
 }
@@ -71,7 +71,7 @@ export function tableHtml({ head, rows }) {
 }
 
 let dialogueSeq = 0;
-export function dialogueHtml(d) {
+export function dialogueHtml(d, { playLabel = 'Play all' } = {}) {
   const id = `dlg-${++dialogueSeq}`;
   const lines = d.lines
     .map((line) => {
@@ -84,11 +84,26 @@ export function dialogueHtml(d) {
     })
     .join('');
   return `<div class="dialogue" id="${id}">
-    <div class="dlg-head"><h3>${esc(d.title)}</h3>
-      <button type="button" class="pbtn main" data-play-dialogue="${id}">${icons.play}<span>Play all</span></button>
+    <div class="dlg-head">${d.title ? `<h3>${esc(d.title)}</h3>` : ''}
+      <button type="button" class="pbtn main" data-play-dialogue="${id}">${icons.play}<span>${esc(playLabel)}</span></button>
     </div>
     <ol class="dlg-lines">${lines}</ol>
   </div>`;
+}
+
+// The original book recording, played from the teacher's Google Drive (only
+// people the file is shared with can hear it; nothing is copied to this site).
+export function bookAudio(tracks = []) {
+  if (!tracks.length) return '';
+  return `<details class="book-audio"><summary>${icons.play}<span>Original recording from the book</span></summary>
+    ${tracks
+      .map(
+        (t) => `<figure><figcaption>${esc(t.label)}</figcaption>
+        <iframe src="https://drive.google.com/file/d/${encodeURIComponent(t.drive)}/preview" title="${esc(t.label)}"
+          loading="lazy" allow="autoplay"></iframe></figure>`,
+      )
+      .join('')}
+  </details>`;
 }
 
 export function sourceBadges(sources) {

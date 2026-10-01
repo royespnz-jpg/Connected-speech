@@ -771,6 +771,10 @@ main:focus-visible {
 .badge.pr::before {
   background: var(--accent);
 }
+.badge.pp::before,
+.badge.book::before {
+  background: var(--c-glide);
+}
 .btn {
   position: relative;
   display: inline-flex;
@@ -1819,6 +1823,15 @@ ul.bullets li::before {
   border-color: var(--accent);
   color: var(--on-accent);
 }
+.cta-card.session {
+  background:
+    radial-gradient(420px 220px at 100% 0%, color-mix(in srgb, var(--c-glide) 22%, transparent), transparent 70%),
+    var(--surface);
+  border-color: color-mix(in srgb, var(--c-glide) 40%, var(--line));
+}
+.cta-card.session .big-num {
+  color: var(--c-glide);
+}
 .cta-card h3 {
   font-family: var(--f-display);
   font-weight: 400;
@@ -2204,6 +2217,174 @@ ul.bullets li::before {
 .done-panel .sent {
   color: var(--good);
   margin: 0;
+}
+
+/* Session VI (Pronunciation Plus) */
+.nav-link.sub {
+  padding-left: 30px;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+.nav-link.sub::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--c-glide);
+}
+.practice-group + .practice-group {
+  margin-top: 56px;
+}
+.group-head {
+  margin-bottom: 18px;
+}
+.group-head h2 {
+  margin: 4px 0 0;
+}
+.q-mark {
+  font-family: var(--f-display);
+  font-size: clamp(1.4rem, 2.8vw, 1.75rem);
+  line-height: 1.3;
+}
+.feedback .dialogue {
+  flex: 1 1 100%;
+  margin: 4px 0 0;
+  padding: 12px 14px;
+}
+.feedback .dialogue .dlg-head {
+  margin-bottom: 6px;
+}
+
+/* a conversation to listen to first; the text is blurred until revealed */
+.listen-card {
+  margin-bottom: 22px;
+}
+.listen-card .dialogue {
+  margin-top: 0;
+}
+.listen-card .dlg-line .said {
+  transition:
+    filter 0.6s var(--ease-out),
+    opacity 0.6s var(--ease-out);
+}
+.listen-card[data-transcript='hidden'] .dlg-line .said {
+  filter: blur(7px);
+  opacity: 0.55;
+  user-select: none;
+}
+.listen-card[data-transcript='shown'] [data-show-text] {
+  display: none;
+}
+
+/* gap fill: a two-line conversation with a missing word */
+.gap-item .dlg-lines {
+  margin-top: 12px;
+}
+.gap-form {
+  margin-top: 12px;
+}
+.gap-form .dict-input {
+  flex: 1 1 200px;
+  width: auto;
+  margin: 0;
+}
+.compare .examples {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* disappearing /h/: tap the words that lose it */
+.hd .said {
+  line-height: 1.8;
+}
+.hw {
+  border: 0;
+  margin: 0 -1px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  color: inherit;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+.hw .h {
+  color: var(--c-glide);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.hw:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.hw.sel {
+  background: var(--accent-soft);
+}
+.hw.sel .h,
+.hw.dropped .h {
+  color: var(--c-del);
+  text-decoration-line: line-through;
+}
+.hw:disabled {
+  cursor: default;
+}
+.hw.ok {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.hw.no {
+  background: var(--bad-soft);
+  color: var(--bad);
+  animation: shake 0.4s var(--ease-out);
+}
+.hd-check {
+  margin: 8px 0 16px;
+}
+
+/* the original book recording, from the teacher's Drive */
+.book-audio {
+  margin: 0 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.book-audio summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 18px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.book-audio summary svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--accent);
+}
+.book-audio figure {
+  margin: 0;
+  padding: 0 18px 16px;
+}
+.book-audio figcaption {
+  margin-bottom: 6px;
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.book-audio iframe {
+  display: block;
+  width: 100%;
+  height: 80px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
 }
 
 /* ─── lab ────────────────────────────────────────────────────────────────── */

@@ -16,6 +16,7 @@ generado con **ElevenLabs**. Está basado en dos lecturas:
 | **11 temas** | Contracciones y blends · Linking (los 5 contextos) · Asimilación (progresiva, regresiva, coalescente) · Palatalización · Deleción (síncopa, aféresis, /r/ que desaparece…) · Epéntesis y disimilación · Weak forms y consonantes silábicas · Las distintas *t* (flap, *t* que desaparece, twenty…ninety) · gonna/gotta/hasta/hafta/oughta/usta/wanna · Qué usar, qué reconocer y qué evitar · Ideas para enseñar (diálogo, knock-knock jokes, picture grid…) |
 | **316 ejemplos + 5 diálogos con audio** | Cada ejemplo tiene ▶ *Play* (conectado), *Slow* y *Word by word* (palabra por palabra, la versión “choppy”) para comparar, más **Record** para grabarte y comparar con el modelo |
 | **9 sets de ejercicios** | Nombrar el proceso · gonna vs. going to (Ej. F) · qué sonido palatalizado (Ej. G) · las *t* de twenty…ninety (Ej. I) · deleción de /t d/ · weak vs. strong forms · usar/reconocer/evitar · encontrar las palabras con síncopa (Ej. H) · dictado a velocidad real |
+| **Sesión VI · Pronunciation Plus (Units 36–37)** | 7 ejercicios en el orden del libro: *Brian's birthday* (escuchar la conversación con dos voces y responder) · repetir los enlaces /w/ y /y/ · ¿/w/ o /y/? · cinco conversaciones cortas · sílabas iniciales cortas (completar la palabra que falta) · la /h/ que desaparece (tocar las palabras) · decir las conversaciones y grabarse |
 | **Connected Speech Lab** | Escribís cualquier oración y marca linking, glides, palatalización, asimilación, deleción, flaps, reducciones (gonna, wanna…) y weak forms; después la escuchás y te grabás |
 
 Los diálogos (Bob y Marie, knock-knock jokes) usan **dos voces** distintas.
@@ -111,6 +112,7 @@ index.html              página única (router con #/…)
 css/styles.css          estilos (modo claro y oscuro)
 js/content.js           los 11 temas: reglas, tablas, ejemplos, diálogos
 js/exercises-data.js    los ejercicios y la corrección del dictado
+js/exercises-pp.js      Sesión VI: Pronunciation Plus, Units 36–37
 js/analyzer.js          el analizador del Lab (reglas basadas en la ortografía)
 js/tts.js               motor de voz: clip pre-generado → ElevenLabs (script o key propia) → voz del navegador
 js/voice-panel.js       el panel para elegir voces

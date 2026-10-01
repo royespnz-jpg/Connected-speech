@@ -1,5 +1,5 @@
 import { topicGroups, topicById, SOURCES } from './content.js';
-import { exerciseSets } from './exercises-data.js';
+import { exerciseSets, exerciseGroups, setById } from './exercises-data.js';
 import {
   play,
   stop,
@@ -74,6 +74,13 @@ function renderSidebar(active) {
     <div class="nav-group">
       <div class="nav-title">Practice</div>
       ${link('#/practice', 'Exercises', `<span class="num">${exerciseSets.length}</span>`)}
+      ${exerciseGroups
+        .filter((g) => g.id !== 'readings')
+        .map((g) => {
+          const first = exerciseSets.find((set) => set.group === g.id);
+          return link(`#/practice/${first.id}`, g.short).replace('class="nav-link"', 'class="nav-link sub"');
+        })
+        .join('')}
       ${link('#/lab', 'Connected Speech Lab')}
     </div>
     <div class="nav-group">${link('#/settings', 'Voice & results')}</div>`;
@@ -141,7 +148,10 @@ function view(parts) {
   }
   if (parts[0] === 'practice') {
     const html = parts[1] ? renderPracticeSet(parts[1]) : renderPracticeList();
-    return html && { html, active: '#/practice', title: 'Practice · Connected Speech Lab' };
+    // Session VI sets light up their unit in the sidebar.
+    const group = parts[1] && setById(parts[1])?.group;
+    const first = group && exerciseSets.find((set) => set.group === group);
+    return html && { html, active: first ? `#/practice/${first.id}` : '#/practice', title: 'Practice · Connected Speech Lab' };
   }
   if (parts[0] === 'lab') return { html: renderLab(), active: '#/lab', title: 'Lab · Connected Speech Lab' };
   if (parts[0] === 'settings') return { html: renderSettings(), active: '#/settings', title: 'Voice & results · Connected Speech Lab' };

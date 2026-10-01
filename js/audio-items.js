@@ -2,7 +2,8 @@
 // them once with ElevenLabs and the site can serve them as static files.
 
 import { topics } from './content.js';
-import { exerciseSets, itemSay } from './exercises-data.js';
+import { exerciseSets, itemSay, hLineText } from './exercises-data.js';
+import { SPEAKER_VOICE } from './exercises-pp.js';
 import { spokenText } from './markup.js';
 import { DEFAULT_VOICES, audioKey, wordsModeAllowed } from './audio-core.js';
 
@@ -35,12 +36,42 @@ export function collectAudioItems(voices = DEFAULT_VOICES) {
     }
   }
 
+  const addExample = (example, where) => {
+    const text = exampleText(example);
+    const voice = example.voice || 'A';
+    add(text, 'natural', voice, where);
+    add(text, 'slow', voice, where);
+    if (wordsModeAllowed(text)) add(text, 'words', voice, where);
+  };
+  const addLines = (lines, where) => {
+    for (const line of lines) add(exampleText(line), 'natural', line.voice || 'A', where);
+  };
+
   for (const set of exerciseSets) {
-    if (set.type === 'pick') add(set.passage, 'natural', 'A', `practice/${set.id}`);
+    const where = `practice/${set.id}`;
+    if (set.type === 'pick') add(set.passage, 'natural', 'A', where);
+    if (set.dialogue) addLines(set.dialogue.lines, where);
+    for (const section of set.sections || []) {
+      for (const it of section.items) addExample(typeof it === 'string' ? { m: it } : it, where);
+    }
+    for (const m of [...(set.compare || []).flat(), ...(set.examples || [])]) addExample({ m }, where);
+    for (const lines of set.conversations || []) {
+      for (const [who, text] of lines) add(hLineText(text), 'natural', SPEAKER_VOICE[who] || 'A', where);
+    }
     for (const item of set.items || []) {
       const text = itemSay(set, item);
-      add(text, 'natural', 'A', `practice/${set.id}`);
-      if (set.type === 'dictation') add(text, 'slow', 'A', `practice/${set.id}`);
+      if (set.type === 'gap') {
+        add(item.a, 'natural', 'A', where);
+        add(text, 'natural', 'B', where);
+        add(text, 'slow', 'B', where);
+        continue;
+      }
+      if (item.dialogue) {
+        addLines(item.dialogue, where);
+        continue;
+      }
+      add(text, 'natural', 'A', where);
+      if (set.type === 'dictation') add(text, 'slow', 'A', where);
     }
   }
 

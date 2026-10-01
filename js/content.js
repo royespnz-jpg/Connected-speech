@@ -15,6 +15,10 @@ export const SOURCES = {
     short: 'Prator & Robinett · L16',
     long: 'Prator & Robinett, Manual of American English Pronunciation — Lesson 16 “The Sandhi of Spoken English”',
   },
+  PP: {
+    short: 'Pronunciation Plus · U36–37',
+    long: 'Hewings & Goldstein, Pronunciation Plus — Unit 36 “Sounds that link words: /w/ and /y/” and Unit 37 “Short sounds and disappearing /h/”',
+  },
 };
 
 const ex = (m, ipa, note, extra = {}) => ({ m, ipa, note, ...extra });
