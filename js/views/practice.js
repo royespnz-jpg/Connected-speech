@@ -12,6 +12,7 @@ import {
   pickText,
 } from '../exercises-data.js';
 import { SPEAKER_VOICE } from '../exercises-pp.js';
+import { bookClip } from '../book-audio.js';
 import { SOURCES } from '../content.js';
 import { renderMarkup, spokenText } from '../markup.js';
 import { esc, playButton, sourceBadges, icons, dialogueHtml, examplesList, bookAudio } from '../ui.js';
@@ -230,17 +231,26 @@ function gapItems(set) {
       const id = `gap-${++gapSeq}`;
       const full = itemSay(set, item);
       const b = esc(item.b).replace(/___/g, '<span class="blank" data-blank>&nbsp;</span>');
-      return `<li class="card item gap-item" data-item="${i}" id="${id}">
-        <div class="item-q"><div class="q muted">Conversation ${i + 1}</div>
-          <div class="row">
+      // listenAfter: answer first, then the recording is there to check.
+      const controls = set.listenAfter
+        ? ''
+        : `<div class="row">
             <button type="button" class="pbtn main" data-play-dialogue="${id}">${icons.play}<span>Play</span></button>
-            ${playButton(full, { mode: 'slow', voice: 'B' })}
-          </div></div>
+            ${bookClip(full) ? '' : playButton(full, { mode: 'slow', voice: 'B' })}
+          </div>`;
+      const bPlay = set.listenAfter ? '' : playButton(full, { voice: 'B', label: '', round: true });
+      return `<li class="card item gap-item" data-item="${i}" id="${id}">
+        <div class="item-q"><div class="q${item.prompt ? '' : ' muted'}">${item.prompt ? esc(item.prompt) : `Conversation ${i + 1}`}</div>
+          ${controls}</div>
         <ol class="dlg-lines">
-          <li class="dlg-line voice-A"><span class="who" aria-hidden="true">A</span>
-            <span class="said">${esc(item.a)}</span>${playButton(item.a, { voice: 'A', label: '', round: true })}</li>
-          <li class="dlg-line voice-B"><span class="who" aria-hidden="true">B</span>
-            <span class="said">${b}</span>${playButton(full, { voice: 'B', label: '', round: true })}</li>
+          ${
+            item.a
+              ? `<li class="dlg-line voice-A"><span class="who" aria-hidden="true">A</span>
+            <span class="said">${esc(item.a)}</span>${playButton(item.a, { voice: 'A', label: '', round: true })}</li>`
+              : ''
+          }
+          <li class="dlg-line voice-B"><span class="who" aria-hidden="true">${item.a ? 'B' : '→'}</span>
+            <span class="said">${b}</span>${bPlay}</li>
         </ol>
         <form data-dict-form class="gap-form row">
           ${item.answer
@@ -372,7 +382,7 @@ function collectAnswers(root, set) {
       return { n: i + 1, prompt: `Dictation ${i + 1}`, answer: el.dataset.typed || '', expected: item.answer, correct: el.dataset.result === 'ok' };
     }
     if (set.type === 'gap') {
-      return { n: i + 1, prompt: `${item.a} / ${item.b}`, answer: el.dataset.typed || '', expected: item.answer.join(' / '), correct: el.dataset.result === 'ok' };
+      return { n: i + 1, prompt: item.a ? `${item.a} / ${item.b}` : `${item.prompt} ${item.b}`, answer: el.dataset.typed || '', expected: item.answer.join(' / '), correct: el.dataset.result === 'ok' };
     }
     const opts = itemOptions(set, item);
     return {
@@ -580,8 +590,12 @@ function checkGap(root, item, form, data) {
   const answer = data.answer.join(' … ');
   const fb = item.querySelector('[data-feedback]');
   fb.hidden = false;
+  const set = setById(root.querySelector('[data-scorebar]').dataset.set);
+  const why = data.note || set.gapNote || '';
   fb.innerHTML = `<span class="verdict ${correct ? 'ok' : 'no'}">${correct ? 'Correct!' : 'Not quite.'}</span>
-    <span>${correct ? '' : `You wrote “${esc(typed.join(' … '))}”. `}It's <b>${esc(answer)}</b>
-    <span class="ipa">${esc(data.ipa || '')}</span>: the first syllable is just a short /ə/.</span>`;
+    <span>${correct ? '' : `You wrote “${esc(typed.join(' … '))}”. Answer: `}<b>${esc(answer)}</b>${
+      data.ipa ? ` <span class="ipa">${esc(data.ipa)}</span>` : ''
+    }${why ? ` — ${esc(why)}` : ''}</span>
+    ${set.listenAfter ? playButton(itemSay(set, data), { label: 'Hear it' }) : ''}`;
   updateScore(root);
 }

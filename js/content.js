@@ -21,7 +21,7 @@ export const SOURCES = {
   },
   PA: {
     short: 'Pronunciation Pairs',
-    long: 'Baker & Goldstein, Pronunciation Pairs (2nd ed.) — Units 12, 36, 40 and 42 and the gonna practice',
+    long: 'Baker & Goldstein, Pronunciation Pairs (2nd ed.) — the 13 Session VI practices, Units 12–45',
   },
 };
 
