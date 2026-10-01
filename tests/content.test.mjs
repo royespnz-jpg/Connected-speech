@@ -145,10 +145,12 @@ test('a set names its book recordings until they are connected', async () => {
   const { bookAudio } = await import('../js/ui.js');
   const { BOOK_TRACKS } = await import('../js/book-audio.js');
   assert.equal(bookAudio(), '');
+  const saved = BOOK_TRACKS['pp-04'].drive;
+  BOOK_TRACKS['pp-04'].drive = '';
   assert.match(bookAudio(['pp-04']), /Book recording: Pronunciation Plus · Track 04/);
   BOOK_TRACKS['pp-04'].drive = 'abc_123-XYZ';
   assert.match(bookAudio(['pp-04']), /<audio controls preload="none" src="https:\/\/drive\.google\.com\/uc\?export=download&amp;id=abc_123-XYZ">/);
-  BOOK_TRACKS['pp-04'].drive = '';
+  BOOK_TRACKS['pp-04'].drive = saved;
 });
 
 test('book recordings: every Session VI line with a track has a clip, and every clip has its line', async () => {
@@ -184,6 +186,8 @@ test('book recordings: every Session VI line with a track has a clip, and every 
     last[track] = end;
   }
   // Not played until the track has its Drive file.
+  const saved = BOOK_TRACKS['pp-06'].drive;
+  BOOK_TRACKS['pp-06'].drive = '';
   assert.equal(bookClip('Go ahead.'), null);
   BOOK_TRACKS['pp-06'].drive = 'abc-123';
   assert.deepEqual(bookClip('Go ahead.'), {
@@ -193,5 +197,7 @@ test('book recordings: every Session VI line with a track has a clip, and every 
     end: BOOK_CLIPS['Go ahead.'][2],
     label: BOOK_TRACKS['pp-06'].label,
   });
-  BOOK_TRACKS['pp-06'].drive = '';
+  BOOK_TRACKS['pp-06'].drive = saved;
+  // Drive IDs look like Drive IDs.
+  for (const [id, t] of Object.entries(BOOK_TRACKS)) assert.match(t.drive, /^([\w-]{25,})?$/, id);
 });
