@@ -3,6 +3,12 @@
 //   blank     – sentence with ___, pick the form that fits the meaning
 //   pick      – click the words in a passage that match a rule
 //   dictation – listen and type what you hear
+//   gap       – listen to a short conversation and type the missing word
+//   hdrop     – tap the h-words whose /h/ disappears in a conversation
+//   repeat    – listen, repeat and record (no score)
+
+import { spokenText } from './markup.js';
+import { ppSets } from './exercises-pp.js';
 
 const PROCESSES = [
   'Linking',
@@ -24,7 +30,7 @@ const USE = ['Use it', 'Recognize it — don’t pile it up', 'Avoid it'];
 // would mispronounce (e.g. "hasta" as Spanish).
 const SPOKEN = { hasta: 'has to', usta: 'used to', hafta: 'have to', oughta: 'ought to' };
 
-export const exerciseSets = [
+const readingSets = [
   {
     id: 'processes',
     title: 'Name the process',
@@ -220,13 +226,54 @@ export const exerciseSets = [
   },
 ];
 
+// Listed in this order on the practice page; the Session VI sets come first.
+export const exerciseGroups = [
+  { id: 'pp36', kicker: 'Session VI · Pronunciation Plus', title: 'Unit 36 · Sounds that link words: /w/ and /y/', short: 'Unit 36 · /w/ and /y/ links' },
+  { id: 'pp37', kicker: 'Session VI · Pronunciation Plus', title: 'Unit 37 · Short sounds and disappearing /h/', short: 'Unit 37 · Short sounds, lost /h/' },
+  { id: 'readings', kicker: 'From the readings', title: 'Celce-Murcia et al. · Prator & Robinett' },
+];
+
+export const exerciseSets = exerciseGroups.flatMap((g) =>
+  [...ppSets, ...readingSets].filter((set) => (set.group || 'readings') === g.id),
+);
+
 // What TTS should say for an item (after answering, or as the prompt).
 export function itemSay(set, item) {
   if (set.type === 'blank') {
     const form = item.options[item.answer];
     return item.s.replace('___', SPOKEN[form] || form);
   }
+  if (set.type === 'gap') return item.b.replace('___', item.answer);
+  if (item.m) return spokenText(item.after || item.m);
   return item.say || null;
+}
+
+// Every h-word in an hdrop set: { conv, line, word, drop }.
+export function hWords(set) {
+  const out = [];
+  set.conversations.forEach((lines, conv) =>
+    lines.forEach(([, text], line) => {
+      for (const m of text.matchAll(/\{(\^?)([^}]+)\}/g)) out.push({ conv, line, word: m[2], drop: m[1] === '^' });
+    }),
+  );
+  return out;
+}
+
+export function hLineText(text) {
+  return text.replace(/\{\^?([^}]+)\}/g, '$1');
+}
+
+export function itemCount(set) {
+  if (set.type === 'pick') return set.answers.length;
+  if (set.type === 'hdrop') return hWords(set).length;
+  if (set.type === 'repeat') return set.sections.reduce((n, s) => n + s.items.length, 0);
+  return set.items.length;
+}
+
+// A gap answer is right if it is the missing word, ignoring case and punctuation.
+export function gapCorrect(item, typed) {
+  const norm = (w) => w.toLowerCase().replace(/[^a-z']/g, '');
+  return [item.answer, ...(item.accept || [])].some((a) => norm(a) === norm(typed));
 }
 
 export function itemOptions(set, item) {

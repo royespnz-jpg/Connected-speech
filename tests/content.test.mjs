@@ -2,7 +2,19 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { topics, topicGroups, orderedTopics } from '../js/content.js';
-import { exerciseSets, itemSay, itemOptions, diffWords, normalizeWords } from '../js/exercises-data.js';
+import {
+  exerciseSets,
+  exerciseGroups,
+  itemSay,
+  itemOptions,
+  itemCount,
+  diffWords,
+  normalizeWords,
+  hWords,
+  hLineText,
+  gapCorrect,
+} from '../js/exercises-data.js';
+import { hLinked } from '../js/exercises-pp.js';
 import { collectAudioItems } from '../js/audio-items.js';
 import { parseMarkup, spokenText, renderMarkup } from '../js/markup.js';
 import { audioKey, ttsTextFor } from '../js/audio-core.js';
@@ -38,6 +50,16 @@ test('every topic is reachable and has content', () => {
 
 test('exercise answers are valid', () => {
   for (const set of exerciseSets) {
+    if (set.type === 'repeat') {
+      assert.ok(itemCount(set) > 0, set.id);
+      continue;
+    }
+    if (set.type === 'hdrop') {
+      const words = hWords(set);
+      assert.ok(words.some((w) => w.drop) && words.some((w) => !w.drop), set.id);
+      for (const w of words) assert.match(w.word, /^w?h/i, `${set.id}: ${w.word} is not an h-word`);
+      continue;
+    }
     if (set.type === 'pick') {
       const words = new Set(set.passage.toLowerCase().match(/[a-z]+/g));
       for (const a of set.answers) assert.ok(words.has(a), `${set.id}: ${a} not in passage`);
@@ -48,6 +70,12 @@ test('exercise answers are valid', () => {
         assert.ok(diffWords(item.answer, item.say).correct, `${set.id}: "${item.say}" should match "${item.answer}"`);
         continue;
       }
+      if (set.type === 'gap') {
+        assert.ok(item.b.includes('___') && item.answer, set.id);
+        assert.ok(itemSay(set, item).includes(item.answer), set.id);
+        continue;
+      }
+      if (item.m) assert.ok(!/[_[\]*]/.test(itemSay(set, item)), `${set.id}: markup left in ${itemSay(set, item)}`);
       const opts = itemOptions(set, item);
       assert.ok(Number.isInteger(item.answer) && item.answer >= 0 && item.answer < opts.length, `${set.id}: bad answer`);
       if (set.type === 'blank') {
@@ -56,6 +84,29 @@ test('exercise answers are valid', () => {
       }
     }
   }
+});
+
+test('every exercise set is listed under a group', () => {
+  const ids = new Set(exerciseGroups.map((g) => g.id));
+  for (const set of exerciseSets) assert.ok(ids.has(set.group || 'readings'), set.id);
+  assert.equal(new Set(exerciseSets.map((s) => s.id)).size, exerciseSets.length);
+});
+
+test('Session VI: /w/ or /y/ answers and the lost /h/', () => {
+  const wy = exerciseSets.find((s) => s.id === 'pp36-wy');
+  for (const item of wy.items) {
+    const glide = item.after.match(/_\[([wy])\]/)[1];
+    assert.equal(wy.options[item.answer], `/${glide}/`, item.m);
+  }
+  const pairs = exerciseSets.find((s) => s.id === 'pp36-pairs');
+  assert.equal(new Set(pairs.items.map((i) => i.answer)).size, pairs.items.length);
+  assert.equal(hLinked('Have they found {^him}?'), 'Have they found_(h)im?');
+  assert.equal(hLinked("{He} must {^have} left."), 'He must_(h)ave left.');
+  assert.equal(hLineText('Did {^he} tell {^her}?'), 'Did he tell her?');
+  assert.equal(spokenText(hLinked('Did {^he} tell {^her}?')), 'Did he tell her?');
+  const short = exerciseSets.find((s) => s.id === 'pp37-short');
+  assert.ok(gapCorrect(short.items[0], ' Across. '));
+  assert.ok(!gapCorrect(short.items[0], 'cross'));
 });
 
 test('dictation checking accepts reduced spellings and contractions', () => {
@@ -79,4 +130,12 @@ test('manifest only points at files that exist', () => {
   for (const path of Object.values(manifest.items)) {
     assert.ok(existsSync(new URL(`../${path}`, import.meta.url)), `missing ${path}`);
   }
+});
+
+test('book recordings play from the Drive preview player', async () => {
+  const { bookAudio } = await import('../js/ui.js');
+  assert.equal(bookAudio(), '');
+  const html = bookAudio([{ label: 'Track 70', drive: 'abc_123-XYZ' }]);
+  assert.match(html, /<iframe src="https:\/\/drive\.google\.com\/file\/d\/abc_123-XYZ\/preview"/);
+  assert.match(html, /Track 70/);
 });

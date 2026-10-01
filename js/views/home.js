@@ -159,6 +159,12 @@ export function renderHome() {
   ${indexRows()}
 
   <section class="home-section cta-grid">
+    <a class="cta-card session" href="#/practice/pp36-birthday">
+      <span class="arrow" aria-hidden="true">${icons.arrowR}</span>
+      <span class="big-num">VI</span>
+      <h3>Session VI · Pronunciation Plus</h3>
+      <p>Units 36–37: the /w/ and /y/ that link words, short first syllables, and the disappearing /h/.</p>
+    </a>
     <a class="cta-card dark" href="#/practice">
       <span class="arrow" aria-hidden="true">${icons.arrowR}</span>
       <span class="big-num">${exerciseSets.length}</span>
@@ -189,8 +195,8 @@ export function renderHome() {
     </div>
   </section>
 
-  <p class="colophon">Based on ${esc(SOURCES.CM.long)} and ${esc(SOURCES.PR.long)}. Content is paraphrased for study;
-    the original readings are not included.</p>`;
+  <p class="colophon">Based on ${esc(SOURCES.CM.long)} and ${esc(SOURCES.PR.long)}. Session VI practice follows
+    ${esc(SOURCES.PP.long)}. Content is adapted for study; the original readings and recordings are not included.</p>`;
 }
 
 // Toggle between the word-by-word and connected versions on the stage.

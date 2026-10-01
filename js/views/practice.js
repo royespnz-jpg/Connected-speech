@@ -1,6 +1,19 @@
-import { exerciseSets, setById, itemSay, itemOptions, diffWords } from '../exercises-data.js';
+import {
+  exerciseSets,
+  exerciseGroups,
+  setById,
+  itemSay,
+  itemOptions,
+  itemCount,
+  diffWords,
+  hWords,
+  hLineText,
+  gapCorrect,
+} from '../exercises-data.js';
+import { SPEAKER_VOICE } from '../exercises-pp.js';
 import { SOURCES } from '../content.js';
-import { esc, playButton, sourceBadges, icons } from '../ui.js';
+import { renderMarkup, spokenText } from '../markup.js';
+import { esc, playButton, sourceBadges, icons, dialogueHtml, examplesList, bookAudio } from '../ui.js';
 import { saveSettings, getSettings } from '../tts.js';
 import { sheetConfigured, studentName, newId, sendResult } from '../sheets.js';
 
@@ -25,33 +38,44 @@ function saveBest(setId, correct, total) {
   }
 }
 
-function itemCount(set) {
-  return set.type === 'pick' ? set.answers.length : set.items.length;
-}
-
 // ─── list ───────────────────────────────────────────────────────────────────
+
+function setCard(set, progress) {
+  const p = progress[set.id];
+  const pct = p ? Math.round((100 * p.correct) / p.total) : 0;
+  const repeat = set.type === 'repeat';
+  return `<a class="card set-card" href="#/practice/${set.id}">
+    <div class="row">${set.book ? `<span class="badge book">${esc(set.book)}</span>` : sourceBadges([set.source])}
+      <span class="badge">${itemCount(set)} ${repeat ? 'sentences' : 'items'}</span></div>
+    <h3 style="margin:6px 0 0">${esc(set.title)}</h3>
+    <p>${esc(set.intro)}</p>
+    ${
+      repeat
+        ? '<small class="muted">Listen · repeat · record</small>'
+        : `<div class="progress" title="Best score: ${pct}%"><span style="width:${pct}%"></span></div>
+    <small class="muted">${p ? `Best: ${p.correct}/${p.total}` : 'Not tried yet'}</small>`
+    }
+  </a>`;
+}
 
 export function renderPracticeList() {
   const progress = loadProgress();
-  const cards = exerciseSets
-    .map((set) => {
-      const p = progress[set.id];
-      const pct = p ? Math.round((100 * p.correct) / p.total) : 0;
-      return `<a class="card set-card" href="#/practice/${set.id}">
-        <div class="row">${sourceBadges([set.source])}<span class="badge">${itemCount(set)} items</span></div>
-        <h3 style="margin:6px 0 0">${esc(set.title)}</h3>
-        <p>${esc(set.intro)}</p>
-        <div class="progress" title="Best score: ${pct}%"><span style="width:${pct}%"></span></div>
-        <small class="muted">${p ? `Best: ${p.correct}/${p.total}` : 'Not tried yet'}</small>
-      </a>`;
+  const groups = exerciseGroups
+    .map((g) => {
+      const sets = exerciseSets.filter((set) => (set.group || 'readings') === g.id);
+      return `<section class="practice-group" id="${g.id}">
+        <div class="group-head"><p class="kicker">${esc(g.kicker)}</p><h2>${esc(g.title)}</h2></div>
+        <div class="grid">${sets.map((set) => setCard(set, progress)).join('')}</div>
+      </section>`;
     })
     .join('');
   return `<header class="topic-head">
       <div class="eyebrow">Practice</div>
       <h1>Exercises</h1>
-      <p class="lede">Adapted from the exercises in both readings. Every item has audio, and your best score is saved in this browser.</p>
+      <p class="lede">Session VI from <em>Pronunciation Plus</em> (Units 36–37), plus exercises adapted from both readings.
+        Every item has audio, and your best score is saved in this browser.</p>
     </header>
-    <div class="grid">${cards}</div>`;
+    ${groups}`;
 }
 
 // ─── a set ──────────────────────────────────────────────────────────────────
@@ -62,24 +86,33 @@ export function renderPracticeSet(id) {
   const idx = exerciseSets.indexOf(set);
   const next = exerciseSets[idx + 1];
   let body = '';
-  if (set.type === 'choice' || set.type === 'blank') body = choiceItems(set);
+  if (set.type === 'choice' || set.type === 'blank') body = listenCard(set) + choiceItems(set);
   else if (set.type === 'pick') body = pickPassage(set);
   else if (set.type === 'dictation') body = dictationItems(set);
+  else if (set.type === 'gap') body = gapItems(set);
+  else if (set.type === 'hdrop') body = hdropConversations(set);
+  else if (set.type === 'repeat') body = repeatSections(set);
 
+  const scored = set.type !== 'repeat';
   return `<header class="topic-head">
       <div class="eyebrow"><a href="#/practice">Practice</a> · ${idx + 1} of ${exerciseSets.length}</div>
       <h1>${esc(set.title)}</h1>
       <p class="lede">${esc(set.intro)}</p>
-      <div class="row">${sourceBadges([set.source])}</div>
+      <div class="row">${sourceBadges([set.source])}${set.book ? `<span class="badge book">${esc(set.book)}</span>` : ''}</div>
     </header>
-    <div class="scorebar" data-scorebar data-set="${set.id}" data-total="${itemCount(set)}"
+    ${bookAudio(set.tracks)}
+    ${
+      scored
+        ? `<div class="scorebar" data-scorebar data-set="${set.id}" data-total="${itemCount(set)}"
       data-attempt="${newId()}" data-started="${Date.now()}">
       <span class="score" data-score>0 / ${itemCount(set)}</span>
       <div class="progress"><span data-bar style="width:0%"></span></div>
       <button type="button" class="btn" data-reset>Start over</button>
-    </div>
+    </div>`
+        : ''
+    }
     ${body}
-    <div class="card done-panel" data-done hidden aria-live="polite"></div>
+    ${scored ? '<div class="card done-panel" data-done hidden aria-live="polite"></div>' : ''}
     <nav class="pager">
       <a class="btn back" href="#/practice">${icons.arrowL}All exercises</a>
       ${next ? `<a class="btn primary" href="#/practice/${next.id}">${esc(next.title)}${icons.arrowR}</a>` : ''}
@@ -87,7 +120,19 @@ export function renderPracticeSet(id) {
     <p class="muted" style="font-size:.85rem;margin-top:24px">Source: ${esc(SOURCES[set.source].long)}</p>`;
 }
 
+// A conversation to listen to before answering; its text stays blurred until
+// the set is finished or the student asks for it.
+function listenCard(set) {
+  if (!set.dialogue) return '';
+  return `<div class="listen-card" data-listen-card data-transcript="hidden">
+    ${dialogueHtml(set.dialogue, { playLabel: 'Play the conversation' })}
+    <button type="button" class="btn" data-show-text>Show the text</button>
+  </div>`;
+}
+
 function choiceItems(set) {
+  // When the audio would give the answer away, it appears after answering.
+  const after = set.type === 'blank' || set.listenAfter;
   return `<ol class="items">${set.items
     .map((item, i) => {
       const opts = itemOptions(set, item);
@@ -95,9 +140,15 @@ function choiceItems(set) {
       const q =
         set.type === 'blank'
           ? esc(item.s).replace('___', '<span class="blank" data-blank>&nbsp;</span>')
-          : item.q;
-      // For "blank" sets the audio would give the answer away, so it appears after answering.
-      const listen = say && set.type !== 'blank' ? playButton(say, { label: 'Listen' }) : '';
+          : item.m
+            ? `<span class="q-mark" data-q-mark>${renderMarkup(item.m)}</span>`
+            : item.q;
+      const listen = say && !after ? playButton(say, { label: 'Listen' }) : '';
+      const reveal = item.dialogue
+        ? dialogueHtml({ lines: item.dialogue }, { playLabel: 'Play the conversation' })
+        : say && after
+          ? playButton(say, { label: 'Hear it' })
+          : '';
       return `<li class="card item" data-item="${i}" data-answer="${item.answer}">
         <div class="item-q"><div class="q">${q}</div><div class="row">${listen}</div></div>
         <div class="options">${opts
@@ -105,7 +156,7 @@ function choiceItems(set) {
           .join('')}</div>
         <div class="feedback" data-feedback hidden>
           <span class="verdict"></span><span class="why">${item.explain || ''}</span>
-          ${say && set.type === 'blank' ? playButton(say, { label: 'Hear it' }) : ''}
+          ${reveal}
         </div>
       </li>`;
     })
@@ -150,6 +201,95 @@ function dictationItems(set) {
     .join('')}</ol>`;
 }
 
+let gapSeq = 0;
+function gapItems(set) {
+  const compare = set.compare?.length
+    ? `<section class="section compare">
+        <h2>Listen and compare</h2>
+        ${examplesList(set.compare.flat().map((m) => ({ m })))}
+      </section>`
+    : '';
+  const items = set.items
+    .map((item, i) => {
+      const id = `gap-${++gapSeq}`;
+      const full = itemSay(set, item);
+      const b = esc(item.b).replace('___', '<span class="blank" data-blank>&nbsp;</span>');
+      return `<li class="card item gap-item" data-item="${i}" id="${id}">
+        <div class="item-q"><div class="q muted">Conversation ${i + 1}</div>
+          <div class="row">
+            <button type="button" class="pbtn main" data-play-dialogue="${id}">${icons.play}<span>Play</span></button>
+            ${playButton(full, { mode: 'slow', voice: 'B' })}
+          </div></div>
+        <ol class="dlg-lines">
+          <li class="dlg-line voice-A"><span class="who" aria-hidden="true">A</span>
+            <span class="said">${esc(item.a)}</span>${playButton(item.a, { voice: 'A', label: '', round: true })}</li>
+          <li class="dlg-line voice-B"><span class="who" aria-hidden="true">B</span>
+            <span class="said">${b}</span>${playButton(full, { voice: 'B', label: '', round: true })}</li>
+        </ol>
+        <form data-dict-form class="gap-form row">
+          <input class="dict-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+            aria-label="Missing word in conversation ${i + 1}" placeholder="The missing word…">
+          <button class="btn" type="submit">Check</button>
+        </form>
+        <div class="feedback" data-feedback hidden></div>
+      </li>`;
+    })
+    .join('');
+  return `${compare}<ol class="items">${items}</ol>`;
+}
+
+let hdSeq = 0;
+function hdropLine(text) {
+  return esc(text).replace(
+    /\{(\^?)([^}]+)\}/g,
+    (_, drop, w) => {
+      const [, h, rest] = w.match(/^(w?h)(.*)$/i); // the letters spelling /h/: h, or wh in "who"
+      return `<button type="button" class="hw" data-drop="${drop ? 1 : 0}" aria-pressed="false"><span class="h">${h}</span>${rest}</button>`;
+    },
+  );
+}
+
+function hdropConversations(set) {
+  const examples = set.examples?.length
+    ? `<section class="section"><h2>Listen to these examples</h2>${examplesList(set.examples.map((m) => ({ m })))}</section>`
+    : '';
+  const convs = set.conversations
+    .map((lines, n) => {
+      const id = `hd-${++hdSeq}`;
+      return `<div class="dialogue hd" id="${id}">
+        <div class="dlg-head"><h3>Conversation ${n + 1}</h3>
+          <button type="button" class="pbtn main" data-play-dialogue="${id}">${icons.play}<span>Play all</span></button></div>
+        <ol class="dlg-lines">${lines
+          .map(([who, text]) => {
+            const voice = SPEAKER_VOICE[who] || 'A';
+            return `<li class="dlg-line voice-${voice}"><span class="who" aria-hidden="true">${who}</span>
+              <span class="said">${hdropLine(text)}</span>${playButton(hLineText(text), { voice, label: '', round: true })}</li>`;
+          })
+          .join('')}</ol>
+      </div>`;
+    })
+    .join('');
+  return `${examples}
+    <div class="hd-wrap" data-hd>
+      ${convs}
+      <div class="row hd-check"><button type="button" class="btn primary" data-check-h>Check</button>
+        <span class="muted" data-h-count>0 marked</span></div>
+      <div class="callout" data-h-explain hidden><p>${set.explain}</p></div>
+    </div>`;
+}
+
+function repeatSections(set) {
+  return set.sections
+    .map(
+      (sec) => `<section class="section">
+        <h2>${esc(sec.h)}</h2>
+        ${sec.note ? `<p class="muted">${esc(sec.note)}</p>` : ''}
+        ${examplesList(sec.items.map((it) => (typeof it === 'string' ? { m: it } : it)))}
+      </section>`,
+    )
+    .join('');
+}
+
 // ─── interaction (called from app.js on click / submit) ─────────────────────
 
 function updateScore(root) {
@@ -162,6 +302,9 @@ function updateScore(root) {
   if (set.type === 'pick') {
     answered = root.querySelector('[data-passage]').dataset.checked ? total : 0;
     correct = root.querySelectorAll('.pw.correct').length;
+  } else if (set.type === 'hdrop') {
+    answered = root.querySelector('[data-hd]').dataset.checked ? total : 0;
+    correct = root.querySelectorAll('.hw.ok').length;
   } else {
     root.querySelectorAll('.item').forEach((el) => {
       if (el.dataset.result) answered++;
@@ -195,16 +338,29 @@ function collectAnswers(root, set) {
     });
     return rows.map((r, i) => ({ n: i + 1, ...r }));
   }
+  if (set.type === 'hdrop') {
+    const words = hWords(set);
+    return [...root.querySelectorAll('.hw')].map((b, i) => ({
+      n: i + 1,
+      prompt: `Conversation ${words[i].conv + 1}: ${words[i].word}`,
+      answer: b.classList.contains('sel') ? 'no /h/' : '/h/',
+      expected: words[i].drop ? 'no /h/' : '/h/',
+      correct: b.classList.contains('ok'),
+    }));
+  }
   return [...root.querySelectorAll('.item')].map((el) => {
     const i = Number(el.dataset.item);
     const item = set.items[i];
     if (set.type === 'dictation') {
       return { n: i + 1, prompt: `Dictation ${i + 1}`, answer: el.dataset.typed || '', expected: item.answer, correct: el.dataset.result === 'ok' };
     }
+    if (set.type === 'gap') {
+      return { n: i + 1, prompt: `${item.a} / ${item.b}`, answer: el.dataset.typed || '', expected: item.answer, correct: el.dataset.result === 'ok' };
+    }
     const opts = itemOptions(set, item);
     return {
       n: i + 1,
-      prompt: set.type === 'blank' ? item.s : textOf(item.q),
+      prompt: set.type === 'blank' ? item.s : item.m ? spokenText(item.m) : textOf(item.q),
       answer: opts[Number(el.dataset.chosen)] ?? '',
       expected: opts[item.answer],
       correct: el.dataset.result === 'ok',
@@ -228,6 +384,7 @@ function finish(root, set, correct, total) {
     finishedAt: new Date().toISOString(),
     items: collectAnswers(root, set),
   };
+  root.querySelector('[data-listen-card]')?.setAttribute('data-transcript', 'shown');
   const panel = root.querySelector('[data-done]');
   panel.hidden = false;
   panel.innerHTML = `<h2 style="margin:0 0 6px">Finished: ${correct} / ${total} (${Math.round((100 * correct) / total)}%)</h2>
@@ -287,11 +444,44 @@ export function handlePracticeClick(target, root) {
     const v = fb.querySelector('.verdict');
     v.textContent = chosen === answer ? 'Correct.' : 'Not quite.';
     v.className = `verdict ${chosen === answer ? 'ok' : 'no'}`;
+    const data = set.items[Number(item.dataset.item)];
     if (set.type === 'blank') {
       const blank = item.querySelector('[data-blank]');
-      blank.textContent = itemOptions(set, set.items[Number(item.dataset.item)])[answer];
+      blank.textContent = itemOptions(set, data)[answer];
       blank.classList.add('filled');
     }
+    if (data.after) item.querySelector('[data-q-mark]').innerHTML = renderMarkup(data.after);
+    updateScore(root);
+    return true;
+  }
+
+  if (target.closest('[data-show-text]')) {
+    root.querySelector('[data-listen-card]')?.setAttribute('data-transcript', 'shown');
+    return true;
+  }
+
+  const hw = target.closest('.hw');
+  if (hw) {
+    const wrap = hw.closest('[data-hd]');
+    if (wrap.dataset.checked) return true;
+    hw.classList.toggle('sel');
+    hw.setAttribute('aria-pressed', String(hw.classList.contains('sel')));
+    root.querySelector('[data-h-count]').textContent = `${wrap.querySelectorAll('.hw.sel').length} marked`;
+    return true;
+  }
+
+  if (target.closest('[data-check-h]')) {
+    const wrap = root.querySelector('[data-hd]');
+    wrap.dataset.checked = '1';
+    wrap.querySelectorAll('.hw').forEach((b) => {
+      const drop = b.dataset.drop === '1';
+      const sel = b.classList.contains('sel');
+      b.disabled = true;
+      b.classList.add(drop === sel ? 'ok' : 'no');
+      if (drop) b.classList.add('dropped');
+    });
+    root.querySelector('[data-h-explain]').hidden = false;
+    target.closest('[data-check-h]').disabled = true;
     updateScore(root);
     return true;
   }
@@ -341,6 +531,7 @@ export function handlePracticeSubmit(form, root) {
   const data = set.items[Number(item.dataset.item)];
   const typed = form.querySelector('input').value;
   if (!typed.trim()) return;
+  if (set.type === 'gap') return checkGap(root, item, form, data, typed);
   const { ops, correct } = diffWords(data.answer, typed);
   item.dataset.typed = typed.trim();
   item.dataset.result = correct ? 'ok' : 'no';
@@ -351,5 +542,22 @@ export function handlePracticeSubmit(form, root) {
     : `<span class="verdict no">Check the differences:</span>
        <span class="diff">${ops.map((o) => `<span class="${o.op}" title="${o.op}">${esc(o.w)}</span>`).join('')}</span>
        <span class="muted">Answer: ${esc(data.answer)}</span>`;
+  updateScore(root);
+}
+
+function checkGap(root, item, form, data, typed) {
+  if (item.dataset.result) return;
+  const correct = gapCorrect(data, typed);
+  item.dataset.typed = typed.trim();
+  item.dataset.result = correct ? 'ok' : 'no';
+  form.querySelectorAll('input, button').forEach((el) => (el.disabled = true));
+  const blank = item.querySelector('[data-blank]');
+  blank.textContent = data.answer;
+  blank.classList.add('filled');
+  const fb = item.querySelector('[data-feedback]');
+  fb.hidden = false;
+  fb.innerHTML = `<span class="verdict ${correct ? 'ok' : 'no'}">${correct ? 'Correct!' : 'Not quite.'}</span>
+    <span>${correct ? '' : `You wrote “${esc(typed.trim())}”. `}It's <b>${esc(data.answer)}</b>
+    <span class="ipa">${esc(data.ipa || '')}</span>: the first syllable is just a short /ə/.</span>`;
   updateScore(root);
 }
