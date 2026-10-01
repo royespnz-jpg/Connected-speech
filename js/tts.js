@@ -323,12 +323,28 @@ function playClip(clip, token) {
     };
     const failed = () => {
       trackAudio.delete(clip.url);
-      emit({ type: 'error', message: `Couldn't load the book recording (${clip.label}). Check that its Drive file is shared.` });
+      emit({ type: 'error', message: `Couldn't play the book recording (${clip.label}). Check that its Drive file is shared with “Anyone with the link”.` });
       finish(false);
     };
+    // Seek only once the browser can: right away when the server accepts byte
+    // ranges, otherwise when the clip has been downloaded (or after a few seconds).
+    const inRanges = (ranges, t) => {
+      for (let i = 0; i < ranges.length; i++) if (ranges.start(i) <= t && t <= ranges.end(i)) return true;
+      return false;
+    };
+    const canSeek = () => inRanges(audio.seekable, clip.start) || inRanges(audio.buffered, clip.end);
+    let waited = 0;
     const start = () => {
       if (token !== state.token) return finish(true);
+      if (!canSeek() && waited < 8000) {
+        waited += 100;
+        setTimeout(start, 100);
+        return;
+      }
       audio.currentTime = clip.start;
+      // A server without byte ranges can leave the audio unseekable: rather than
+      // play the wrong line from the start of the track, use the app's voice.
+      if (Math.abs(audio.currentTime - clip.start) > 0.5) return failed();
       audio
         .play()
         .then(() => {

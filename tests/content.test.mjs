@@ -154,20 +154,28 @@ test('a set names its book recordings until they are connected', async () => {
 test('book recordings: every Session VI line with a track has a clip, and every clip has its line', async () => {
   const { BOOK_TRACKS, BOOK_CLIPS, bookClip } = await import('../js/book-audio.js');
   const { exampleText } = await import('../js/audio-items.js');
-  const lines = new Map(); // spoken text → track ids of its set
+  const { spokenText } = await import('../js/markup.js');
+  const lines = new Map(); // spoken text → track ids of every set that has the line
   for (const set of exerciseSets.filter((s) => s.tracks)) {
-    const add = (t) => lines.set(t, set.tracks);
-    for (const sec of set.sections || []) for (const it of sec.items) add(exampleText(typeof it === 'string' ? { m: it } : it));
-    for (const m of (set.compare || []).flat()) add(exampleText({ m }));
+    const add = (t) => lines.set(t, new Set([...(lines.get(t) || []), ...set.tracks]));
+    const addEx = (it) => add(exampleText(typeof it === 'string' ? { m: it } : it));
+    for (const sec of set.sections || []) sec.items.forEach(addEx);
+    for (const m of (set.compare || []).flat()) addEx(m);
+    (set.examples || []).forEach(addEx);
+    (set.reveal || []).forEach(addEx);
     for (const conv of set.conversations || []) for (const [, t] of conv) add(hLineText(t));
     for (const item of set.items || []) {
-      if (set.type === 'gap') add(item.a);
+      if (item.dialogue) {
+        for (const l of item.dialogue) add(spokenText(l.m));
+        continue;
+      }
+      if (set.type === 'gap' && item.a) add(item.a);
       add(itemSay(set, item));
     }
   }
   for (const [text, tracks] of lines) {
     assert.ok(BOOK_CLIPS[text], `no clip for "${text}"`);
-    assert.ok(tracks.includes(BOOK_CLIPS[text][0]), `"${text}" is in the wrong track`);
+    assert.ok(tracks.has(BOOK_CLIPS[text][0]), `"${text}" is in the wrong track`);
   }
   const last = {};
   for (const [text, [track, start, end]] of Object.entries(BOOK_CLIPS)) {

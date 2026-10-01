@@ -16,7 +16,7 @@ generado con **ElevenLabs**. Está basado en dos lecturas:
 | **11 temas** | Contracciones y blends · Linking (los 5 contextos) · Asimilación (progresiva, regresiva, coalescente) · Palatalización · Deleción (síncopa, aféresis, /r/ que desaparece…) · Epéntesis y disimilación · Weak forms y consonantes silábicas · Las distintas *t* (flap, *t* que desaparece, twenty…ninety) · gonna/gotta/hasta/hafta/oughta/usta/wanna · Qué usar, qué reconocer y qué evitar · Ideas para enseñar (diálogo, knock-knock jokes, picture grid…) |
 | **316 ejemplos + 5 diálogos con audio** | Cada ejemplo tiene ▶ *Play* (conectado), *Slow* y *Word by word* (palabra por palabra, la versión “choppy”) para comparar, más **Record** para grabarte y comparar con el modelo |
 | **9 sets de ejercicios** | Nombrar el proceso · gonna vs. going to (Ej. F) · qué sonido palatalizado (Ej. G) · las *t* de twenty…ninety (Ej. I) · deleción de /t d/ · weak vs. strong forms · usar/reconocer/evitar · encontrar las palabras con síncopa (Ej. H) · dictado a velocidad real |
-| **Sesión VI** | Solo las prácticas que tienen audio en la carpeta de la profe, en el orden del libro, con las respuestas comprobadas contra las grabaciones. *Pronunciation Plus* 36–37 (pistas 04–10): repetir enlaces /w/ y /y/ · ¿/w/ o /y/? · sílabas iniciales cortas (completar) · la /h/ que desaparece. *Pronunciation Pairs*: enlazar /ow/ · conversaciones mezcladas · gonna · useta · /h/ que se pierde · the y than débiles |
+| **Sesión VI** | Las prácticas de la carpeta de la profe, en el orden del libro y con las respuestas comprobadas contra las grabaciones. *Pronunciation Plus* 36–37 (pistas 04–10): enlaces /w/ y /y/ · ¿/w/ o /y/? · sílabas iniciales cortas · la /h/ que desaparece. *Pronunciation Pairs*, prácticas 1–13: enlazar /ow/ · phrasal verbs · ¿/y/ o /w/? · /t/ final · gonna · grupos con -s · /ʃ/ · sílabas mudas · didja/doncha · useta · /h/ · the y than · /n/ silábica. Cada línea suena con **su fragmento de la grabación del libro** (`js/book-audio.js`, 223 líneas en 25 pistas) |
 | **Connected Speech Lab** | Escribís cualquier oración y marca linking, glides, palatalización, asimilación, deleción, flaps, reducciones (gonna, wanna…) y weak forms; después la escuchás y te grabás |
 
 Los diálogos (Bob y Marie, knock-knock jokes) usan **dos voces** distintas.
@@ -62,7 +62,11 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 > cada una de las otras en un archivo nuevo (**+ → Secuencia de comandos**). Cada parte termina con
 > `// ── fin de la parte N de 6 ──`: si no ves esa línea al final, se cortó al pegar.
 
-> **Audios del libro (Sesión VI).** [`google-apps-script/Transcribir.gs`](google-apps-script/Transcribir.gs) va en un
+> **Audios del libro (Sesión VI).** Las grabaciones viven en Google Drive (no en este repositorio, que es público):
+> cada pista de `js/book-audio.js` necesita el ID de su archivo de Drive, compartido como «Cualquier persona con el
+> enlace». Sin ID, esas líneas usan la voz de la app.
+>
+> **Listar los IDs.** [`google-apps-script/Transcribir.gs`](google-apps-script/Transcribir.gs) va en un
 > archivo aparte del mismo proyecto. `listarArchivosDelLibro` anota cada archivo de la carpeta de la Sesión VI con su
 > ID en la hoja **Audios del libro** (sin costo). Con esos IDs, cada práctica muestra la grabación original del libro
 > desde el Drive, que solo pueden escuchar quienes tienen acceso a la carpeta; las pistas no se copian al sitio.
