@@ -12,6 +12,7 @@ import {
   pickText,
 } from '../exercises-data.js';
 import { SPEAKER_VOICE } from '../exercises-pp.js';
+import { bookClip } from '../book-audio.js';
 import { SOURCES } from '../content.js';
 import { renderMarkup, spokenText } from '../markup.js';
 import { esc, playButton, sourceBadges, icons, dialogueHtml, examplesList, bookAudio } from '../ui.js';
@@ -234,7 +235,7 @@ function gapItems(set) {
         <div class="item-q"><div class="q muted">Conversation ${i + 1}</div>
           <div class="row">
             <button type="button" class="pbtn main" data-play-dialogue="${id}">${icons.play}<span>Play</span></button>
-            ${playButton(full, { mode: 'slow', voice: 'B' })}
+            ${bookClip(full) ? '' : playButton(full, { mode: 'slow', voice: 'B' })}
           </div></div>
         <ol class="dlg-lines">
           <li class="dlg-line voice-A"><span class="who" aria-hidden="true">A</span>

@@ -2,6 +2,7 @@ import { escapeHtml as esc, renderMarkup } from './markup.js';
 import { wordsModeAllowed } from './audio-core.js';
 import { exampleText } from './audio-items.js';
 import { SOURCES } from './content.js';
+import { BOOK_TRACKS, bookClip, driveAudioUrl } from './book-audio.js';
 
 export { esc };
 
@@ -36,6 +37,8 @@ export function playButton(text, { mode = 'natural', voice = 'A', label, main = 
 
 export function audioButtons(text, { voice = 'A', words = true, slow = true } = {}) {
   let html = playButton(text, { mode: 'natural', voice, main: true, round: true });
+  // A line from a book recording has only the recording: no slow or word-by-word version.
+  if (bookClip(text)) return html;
   if (slow) html += playButton(text, { mode: 'slow', voice });
   if (words && wordsModeAllowed(text)) html += playButton(text, { mode: 'words', voice });
   return html;
@@ -91,25 +94,21 @@ export function dialogueHtml(d, { playLabel = 'Play all' } = {}) {
   </div>`;
 }
 
-// The original book recording. With a Drive file ID it plays from the teacher's
-// Google Drive (only people the file is shared with can hear it; nothing is
-// copied to this site); without one, the set just names the track.
-export function bookAudio(tracks = []) {
+// The whole book recording(s) of a set, played from the teacher's Google Drive.
+// Until a track has its Drive file, the set just names it.
+export function bookAudio(trackIds = []) {
+  const tracks = trackIds.map((id) => BOOK_TRACKS[id]).filter(Boolean);
   if (!tracks.length) return '';
   const linked = tracks.filter((t) => t.drive);
   if (!linked.length) {
-    return `<p class="book-audio-note">${icons.play}<span>Book recording: ${tracks.map((t) => esc(t.label)).join(' · ')}
-      <small>in your teacher's Session VI folder</small></span></p>`;
+    return `<p class="book-audio-note">${icons.play}<span>Book recording: ${tracks.map((t) => esc(t.label)).join(' · ')}</span></p>`;
   }
-  return `<details class="book-audio"><summary>${icons.play}<span>Original recording from the book</span></summary>
-    ${linked
-      .map(
-        (t) => `<figure><figcaption>${esc(t.label)}</figcaption>
-        <iframe src="https://drive.google.com/file/d/${encodeURIComponent(t.drive)}/preview" title="${esc(t.label)}"
-          loading="lazy" allow="autoplay"></iframe></figure>`,
-      )
-      .join('')}
-  </details>`;
+  return `<div class="book-audio">${linked
+    .map(
+      (t) => `<figure><figcaption>${esc(t.label)}</figcaption>
+      <audio controls preload="none" src="${esc(driveAudioUrl(t.drive))}"></audio></figure>`,
+    )
+    .join('')}</div>`;
 }
 
 export function sourceBadges(sources) {

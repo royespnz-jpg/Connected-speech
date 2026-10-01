@@ -16,6 +16,7 @@ import {
   ttsUrl,
   words,
 } from './audio-core.js';
+import { bookClip } from './book-audio.js';
 import { DEFAULT_SCRIPT_URL, OLD_SCRIPT_URLS } from './config.js';
 import { isScriptUrl, scriptGet, scriptPost } from './script-api.js';
 
@@ -259,6 +260,10 @@ export function stop() {
 export async function play(text, { mode = 'natural', voice = 'A', voiceId } = {}) {
   halt();
   const token = state.token;
+  // Session VI lines play from the book recording when its track is connected.
+  const clip = mode === 'natural' && bookClip(text);
+  if (clip && (await playClip(clip, token))) return;
+  if (token !== state.token) return;
   const s = getSettings();
   const id = voiceId || (voice === 'B' ? s.voiceB : s.voiceA);
 
@@ -285,6 +290,64 @@ export async function play(text, { mode = 'natural', voice = 'A', voiceId } = {}
     emit({ type: 'error', message: `Browser voice, not ElevenLabs — ${problem}` });
   }
   return speakFallback(text, mode, voice, token);
+}
+
+// One audio element per book track, so each file is downloaded once.
+const trackAudio = new Map();
+
+// Plays [start, end] of a book track. Resolves true when it played (or was
+// stopped), false when the recording couldn't be loaded.
+function playClip(clip, token) {
+  let audio = trackAudio.get(clip.url);
+  if (!audio) {
+    audio = new Audio(clip.url);
+    audio.preload = 'auto';
+    trackAudio.set(clip.url, audio);
+  }
+  state.audio = audio;
+  return new Promise((resolve) => {
+    let timer = null;
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timer);
+      audio.removeEventListener('error', failed);
+      audio.removeEventListener('loadedmetadata', start);
+      if (state.audio === audio) {
+        audio.pause();
+        state.audio = null;
+      }
+      if (ok) emit({ type: 'end' });
+      resolve(ok);
+    };
+    const failed = () => {
+      trackAudio.delete(clip.url);
+      emit({ type: 'error', message: `Couldn't load the book recording (${clip.label}). Check that its Drive file is shared.` });
+      finish(false);
+    };
+    const start = () => {
+      if (token !== state.token) return finish(true);
+      audio.currentTime = clip.start;
+      audio
+        .play()
+        .then(() => {
+          if (token !== state.token) return finish(true);
+          emit({ type: 'play', source: `book recording · ${clip.label}` });
+          timer = setInterval(() => {
+            if (token !== state.token || audio.ended || audio.currentTime >= clip.end) finish(token === state.token);
+          }, 25);
+        })
+        .catch(failed);
+    };
+    audio.addEventListener('error', failed, { once: true });
+    if (audio.readyState >= 1) start();
+    else {
+      emit({ type: 'loading', text: clip.label, mode: 'natural' });
+      audio.addEventListener('loadedmetadata', start, { once: true });
+      audio.load();
+    }
+  });
 }
 
 export function playPreview(url) {

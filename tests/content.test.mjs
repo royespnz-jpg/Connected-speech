@@ -141,10 +141,49 @@ test('manifest only points at files that exist', () => {
   }
 });
 
-test('book recordings play from the Drive preview player', async () => {
+test('a set names its book recordings until they are connected', async () => {
   const { bookAudio } = await import('../js/ui.js');
+  const { BOOK_TRACKS } = await import('../js/book-audio.js');
   assert.equal(bookAudio(), '');
-  const html = bookAudio([{ label: 'Track 70', drive: 'abc_123-XYZ' }]);
-  assert.match(html, /<iframe src="https:\/\/drive\.google\.com\/file\/d\/abc_123-XYZ\/preview"/);
-  assert.match(html, /Track 70/);
+  assert.match(bookAudio(['pp-04']), /Book recording: Pronunciation Plus · Track 04/);
+  BOOK_TRACKS['pp-04'].drive = 'abc_123-XYZ';
+  assert.match(bookAudio(['pp-04']), /<audio controls preload="none" src="https:\/\/drive\.google\.com\/uc\?export=download&amp;id=abc_123-XYZ">/);
+  BOOK_TRACKS['pp-04'].drive = '';
+});
+
+test('book recordings: every Session VI line with a track has a clip, and every clip has its line', async () => {
+  const { BOOK_TRACKS, BOOK_CLIPS, bookClip } = await import('../js/book-audio.js');
+  const { exampleText } = await import('../js/audio-items.js');
+  const lines = new Map(); // spoken text → track ids of its set
+  for (const set of exerciseSets.filter((s) => s.tracks)) {
+    const add = (t) => lines.set(t, set.tracks);
+    for (const sec of set.sections || []) for (const it of sec.items) add(exampleText(typeof it === 'string' ? { m: it } : it));
+    for (const m of (set.compare || []).flat()) add(exampleText({ m }));
+    for (const conv of set.conversations || []) for (const [, t] of conv) add(hLineText(t));
+    for (const item of set.items || []) {
+      if (set.type === 'gap') add(item.a);
+      add(itemSay(set, item));
+    }
+  }
+  for (const [text, tracks] of lines) {
+    assert.ok(BOOK_CLIPS[text], `no clip for "${text}"`);
+    assert.ok(tracks.includes(BOOK_CLIPS[text][0]), `"${text}" is in the wrong track`);
+  }
+  const last = {};
+  for (const [text, [track, start, end]] of Object.entries(BOOK_CLIPS)) {
+    assert.ok(lines.has(text), `clip without a line: "${text}"`);
+    assert.ok(BOOK_TRACKS[track] && end - start > 0.4 && start >= (last[track] ?? 0), `bad times for "${text}"`);
+    last[track] = end;
+  }
+  // Not played until the track has its Drive file.
+  assert.equal(bookClip('Go ahead.'), null);
+  BOOK_TRACKS['pp-06'].drive = 'abc-123';
+  assert.deepEqual(bookClip('Go ahead.'), {
+    track: 'pp-06',
+    url: 'https://drive.google.com/uc?export=download&id=abc-123',
+    start: BOOK_CLIPS['Go ahead.'][1],
+    end: BOOK_CLIPS['Go ahead.'][2],
+    label: BOOK_TRACKS['pp-06'].label,
+  });
+  BOOK_TRACKS['pp-06'].drive = '';
 });

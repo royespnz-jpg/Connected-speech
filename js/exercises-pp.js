@@ -8,7 +8,7 @@
 //
 // Extra fields used by these sets:
 //   group, book   – heading on the practice page; unit and exercise in the book
-//   tracks        – [{ label, drive? }] the book recording; with a Drive file ID it is embedded
+//   tracks        – ids of the set's book recordings (js/book-audio.js)
 //   examples      – listen-and-repeat lines shown above the exercise
 //   listenAfter   – (choice) the audio is offered after answering, not before
 //   item.m / item.after – (choice) the sentence in markup, before and after answering
@@ -87,7 +87,7 @@ export const ppSets = [
     id: 'pp36-repeat',
     group: 'pplus',
     book: 'Unit 36 · Ex. 4–5',
-    tracks: [{ label: 'Track 04 · Ex. 4 (/w/)' }, { label: 'Track 05 · Ex. 5 (/y/)' }],
+    tracks: ['pp-04', 'pp-05'],
     title: 'Repeat: /w/ and /y/ links',
     source: 'PP',
     type: 'repeat',
@@ -129,7 +129,7 @@ export const ppSets = [
     id: 'pp36-wy',
     group: 'pplus',
     book: 'Unit 36 · Ex. 6–7',
-    tracks: [{ label: 'Track 06 · Ex. 7' }],
+    tracks: ['pp-06'],
     title: '/w/ or /y/?',
     source: 'PP',
     type: 'choice',
@@ -153,7 +153,7 @@ export const ppSets = [
     id: 'pp37-short',
     group: 'pplus',
     book: 'Unit 37 · Ex. 1–2',
-    tracks: [{ label: 'Track 07 · Ex. 1' }, { label: 'Track 08 · Ex. 2' }],
+    tracks: ['pp-07', 'pp-08'],
     title: 'Short first syllables',
     source: 'PP',
     type: 'gap',
@@ -179,14 +179,13 @@ export const ppSets = [
   {
     id: 'pp37-h',
     group: 'pplus',
-    book: 'Unit 37 · Ex. 3–5',
-    tracks: [{ label: 'Track 10 · Ex. 4' }],
+    book: 'Unit 37 · Ex. 4–5',
+    tracks: ['pp-10'],
     title: 'Disappearing /h/',
     source: 'PP',
     type: 'hdrop',
     intro:
       'The /h/ at the start of some words is very short or not pronounced at all. Listen to each conversation and tap every underlined word where the /h/ disappears.',
-    examples: ['Does_(h)e like it?', "What's_(h)er name?"],
     conversations: H_CONVERSATIONS,
     explain: `The words that change are <b>he, him, his, her, have</b> and the <b>who</b> that joins two ideas (<i>the man who robbed…</i>). When they are unstressed in the middle of a sentence, the /h/ disappears and the word links to the one before it: <i>${renderMarkup('found_(h)im')}, ${renderMarkup('tell_(h)er')}</i>. The /h/ stays at the start of a sentence (<i>He did…</i>), in a question word on its own (<i>Who?</i>) and when the word is stressed (<i>HIS book’s over there</i>). Content words like <i>house, Henry, heart, home, here</i> and <i>hope</i> always keep it.`,
   },
@@ -275,7 +274,7 @@ export const ppSets = [
     id: 'pairs-useta',
     group: 'pairs',
     book: 'Practice 10 · Unit 36 E',
-    tracks: [{ label: '10 Useta (used to) · Unit 36 E' }],
+    tracks: ['pairs-10'],
     title: 'Useta (used to)',
     source: 'PA',
     type: 'repeat',
@@ -320,7 +319,7 @@ export const ppSets = [
     id: 'pairs-weak-the',
     group: 'pairs',
     book: 'Practice 12 · Unit 42 F',
-    tracks: [{ label: '12 Weak pronunciations for the and than · Unit 42 F' }],
+    tracks: ['pairs-12'],
     title: 'Weak the and than',
     source: 'PA',
     type: 'repeat',
