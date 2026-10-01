@@ -62,6 +62,12 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 > cada una de las otras en un archivo nuevo (**+ → Secuencia de comandos**). Cada parte termina con
 > `// ── fin de la parte N de 6 ──`: si no ves esa línea al final, se cortó al pegar.
 
+> **Audios del libro (Sesión VI).** [`google-apps-script/Transcribir.gs`](google-apps-script/Transcribir.gs) va en un
+> archivo aparte del mismo proyecto. Al ejecutar `transcribirAudiosDelLibro` recorre la carpeta de la Sesión VI y
+> anota cada archivo con su ID en la hoja **Audios del libro**. Los audios los transcribe con ElevenLabs Speech to
+> Text, separando hablantes, para comprobar las respuestas de los ejercicios contra la grabación original. Si quedan
+> audios pendientes, volvé a ejecutarla.
+
 **Instalación (una sola vez)** — si ya lo tenías instalado, pegá el `Code.gs` nuevo, ejecutá `setup` de nuevo (pide un
 permiso más, para conectarse a ElevenLabs) y hacé *Implementar → Administrar implementaciones → ✏ → Nueva versión*:
 
