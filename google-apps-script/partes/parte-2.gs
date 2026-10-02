@@ -56,7 +56,7 @@ function showHelp() {
 /** La app usa esto para “Test connection”. */
 function doGet() {
   const ss = getSpreadsheet_();
-  return json_({ ok: true, app: APP_NAME, sheet: ss.getName(), tts: Boolean(elevenKeyOrNull_()), version: 2 });
+  return json_({ ok: true, app: APP_NAME, sheet: ss.getName(), tts: Boolean(elevenKeyOrNull_()), version: 3 });
 }
 
 /** La app envía acá los resultados, las grabaciones y los pedidos de voz. */
@@ -65,6 +65,7 @@ function doPost(e) {
     const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (data.type === 'tts') return json_(tts_(data));
     if (data.type === 'voices') return json_(voices_());
+    if (data.type === 'book-audio') return json_(bookAudio_(data));
     if (data.type === 'result') return json_(withLock_(function () { return saveResult_(data); }));
     if (data.type === 'recording') return json_(withLock_(function () { return saveRecording_(data); }));
     if (data.type === 'ping') return json_({ ok: true });

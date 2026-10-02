@@ -149,7 +149,7 @@ test('a set names its book recordings until they are connected', async () => {
   BOOK_TRACKS['pp-04'].drive = '';
   assert.match(bookAudio(['pp-04']), /Book recording: Pronunciation Plus · Track 04/);
   BOOK_TRACKS['pp-04'].drive = 'abc_123-XYZ';
-  assert.match(bookAudio(['pp-04']), /<audio controls preload="none" src="https:\/\/drive\.google\.com\/uc\?export=download&amp;id=abc_123-XYZ">/);
+  assert.match(bookAudio(['pp-04']), /<iframe src="https:\/\/drive\.google\.com\/file\/d\/abc_123-XYZ\/preview"/);
   BOOK_TRACKS['pp-04'].drive = saved;
 });
 
@@ -192,6 +192,7 @@ test('book recordings: every Session VI line with a track has a clip, and every 
   BOOK_TRACKS['pp-06'].drive = 'abc-123';
   assert.deepEqual(bookClip('Go ahead.'), {
     track: 'pp-06',
+    drive: 'abc-123',
     url: 'https://drive.google.com/uc?export=download&id=abc-123',
     start: BOOK_CLIPS['Go ahead.'][1],
     end: BOOK_CLIPS['Go ahead.'][2],

@@ -271,5 +271,5 @@ export function bookClip(text) {
   const clip = BOOK_CLIPS[text];
   const track = clip && BOOK_TRACKS[clip[0]];
   if (!track?.drive) return null;
-  return { track: clip[0], url: driveAudioUrl(track.drive), start: clip[1], end: clip[2], label: track.label };
+  return { track: clip[0], drive: track.drive, url: driveAudioUrl(track.drive), start: clip[1], end: clip[2], label: track.label };
 }
