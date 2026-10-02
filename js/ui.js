@@ -2,7 +2,7 @@ import { escapeHtml as esc, renderMarkup } from './markup.js';
 import { wordsModeAllowed } from './audio-core.js';
 import { exampleText } from './audio-items.js';
 import { SOURCES } from './content.js';
-import { BOOK_TRACKS, bookClip, driveAudioUrl } from './book-audio.js';
+import { BOOK_TRACKS, bookClip } from './book-audio.js';
 
 export { esc };
 
@@ -94,8 +94,9 @@ export function dialogueHtml(d, { playLabel = 'Play all' } = {}) {
   </div>`;
 }
 
-// The whole book recording(s) of a set, played from the teacher's Google Drive.
-// Until a track has its Drive file, the set just names it.
+// The whole book recording(s) of a set, in Google Drive's own player (Drive
+// lets other pages embed it, unlike its download links). Until a track has its
+// Drive file, the set just names it.
 export function bookAudio(trackIds = []) {
   const tracks = trackIds.map((id) => BOOK_TRACKS[id]).filter(Boolean);
   if (!tracks.length) return '';
@@ -103,12 +104,14 @@ export function bookAudio(trackIds = []) {
   if (!linked.length) {
     return `<p class="book-audio-note">${icons.play}<span>Book recording: ${tracks.map((t) => esc(t.label)).join(' · ')}</span></p>`;
   }
-  return `<div class="book-audio">${linked
-    .map(
-      (t) => `<figure><figcaption>${esc(t.label)}</figcaption>
-      <audio controls preload="none" src="${esc(driveAudioUrl(t.drive))}"></audio></figure>`,
-    )
-    .join('')}</div>`;
+  return `<details class="book-audio"><summary>${icons.play}<span>Whole recording${linked.length > 1 ? 's' : ''} from the book</span></summary>
+    ${linked
+      .map(
+        (t) => `<figure><figcaption>${esc(t.label)}</figcaption>
+        <iframe src="https://drive.google.com/file/d/${encodeURIComponent(t.drive)}/preview" title="${esc(t.label)}" loading="lazy" allow="autoplay"></iframe></figure>`,
+      )
+      .join('')}
+  </details>`;
 }
 
 export function sourceBadges(sources) {

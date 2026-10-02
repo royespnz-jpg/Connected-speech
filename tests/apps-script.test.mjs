@@ -337,7 +337,7 @@ test('bad input is rejected with a message', () => {
   assert.equal(post({ type: 'recording', id: 'r', mimeType: 'text/html', audio: 'AA==' }).ok, false);
   const bad = JSON.parse(ctx.doPost({ postData: { contents: '{not json' } }).body);
   assert.equal(bad.ok, false);
-  assert.deepEqual(JSON.parse(ctx.doGet().body), { ok: true, app: 'Connected Speech Lab', sheet: 'Test sheet', tts: true, version: 2 });
+  assert.deepEqual(JSON.parse(ctx.doGet().body), { ok: true, app: 'Connected Speech Lab', sheet: 'Test sheet', tts: true, version: 3 });
 });
 
 // ─── voice engine ───────────────────────────────────────────────────────────
@@ -510,4 +510,37 @@ test('Transcribir.gs lists the book folder and transcribes each audio once', () 
   assert.deepEqual(stt.map((s) => s.opts.payload.file.id), ['bad']);
   assert.equal(sheet.data[1][5], 'Hi, Ann! Hi.');
   assert.equal(sheet.data.length, 6);
+});
+
+test('AudiosLibro.gs sends Session VI book audio and nothing else', () => {
+  const { ctx, post } = makeEnv();
+  const iter = (items) => {
+    let i = 0;
+    return { hasNext: () => i < items.length, next: () => items[i++] };
+  };
+  const above = { practice5xxxxxxxxxxxxxxxxxxx: ['1ghh6VixaK-d6eu6napGlXmKOGBwxNkBg'] };
+  const folder = (id) => ({ getId: () => id, getParents: () => iter((above[id] || []).map(folder)) });
+  const files = {
+    track04xxxxxxxxxxxxxxxxxxxxxx: { parents: ['1MNGqRK2MlYMmxsxBdvIBPV2q91E-Nzka'], mime: 'audio/mpeg', bytes: [1, 2, 3] },
+    gonnaxxxxxxxxxxxxxxxxxxxxxxxx: { parents: ['practice5xxxxxxxxxxxxxxxxxxx'], mime: 'audio/mpeg', bytes: [4] },
+    privatedocxxxxxxxxxxxxxxxxxxx: { parents: ['someOtherFolderxxxxxxxxxxxx'], mime: 'audio/mpeg', bytes: [9] },
+    unitspdfxxxxxxxxxxxxxxxxxxxxx: { parents: ['1MNGqRK2MlYMmxsxBdvIBPV2q91E-Nzka'], mime: 'application/pdf', bytes: [7] },
+  };
+  ctx.DriveApp.getFileById = (id) => {
+    const f = files[id];
+    if (!f) throw new Error('not found');
+    return {
+      getParents: () => iter(f.parents.map(folder)),
+      getBlob: () => ({ getContentType: () => f.mime, getBytes: () => f.bytes }),
+    };
+  };
+  vm.runInContext(readFileSync(new URL('../google-apps-script/AudiosLibro.gs', import.meta.url), 'utf8'), ctx);
+
+  const ok = post({ type: 'book-audio', id: 'track04xxxxxxxxxxxxxxxxxxxxxx' });
+  assert.deepEqual(ok, { ok: true, audio: Buffer.from([1, 2, 3]).toString('base64'), mime: 'audio/mpeg' });
+  assert.equal(post({ type: 'book-audio', id: 'gonnaxxxxxxxxxxxxxxxxxxxxxxxx' }).audio, 'BA==');
+  assert.match(post({ type: 'book-audio', id: 'privatedocxxxxxxxxxxxxxxxxxxx' }).error, /no es un audio de la Sesión VI/);
+  assert.match(post({ type: 'book-audio', id: 'unitspdfxxxxxxxxxxxxxxxxxxxxx' }).error, /no es un audio/);
+  assert.match(post({ type: 'book-audio', id: '../etc' }).error, /ID de archivo inválido/);
+  assert.equal(JSON.parse(ctx.doGet().body).version, 3);
 });

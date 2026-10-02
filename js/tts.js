@@ -111,7 +111,14 @@ export function manifestInfo() {
 
 // ─── the Google Script voice engine ─────────────────────────────────────────
 
-export async function checkScript() {
+let scriptChecking = null;
+
+export function checkScript() {
+  scriptChecking = runScriptCheck().finally(() => (scriptChecking = null));
+  return scriptChecking;
+}
+
+async function runScriptCheck() {
   const { sheetUrl } = getSettings();
   if (!isScriptUrl(sheetUrl)) {
     state.script = { status: 'offline', error: 'No Google Script URL.' };
@@ -292,41 +299,79 @@ export async function play(text, { mode = 'natural', voice = 'A', voiceId } = {}
   return speakFallback(text, mode, voice, token);
 }
 
-// One audio element per book track, so each file is downloaded once.
-const trackAudio = new Map();
+// The book recordings come through the teacher's Google Script (version 3):
+// Google doesn't let other pages play Drive download links. Each track is
+// fetched once and kept in the browser's cache; its audio element is reused.
+const trackSrcs = new Map(); // Drive ID → object URL
+const trackAudio = new Map(); // src → audio element
+
+async function trackSrc(clip) {
+  if (trackSrcs.has(clip.drive)) return trackSrcs.get(clip.drive);
+  if (scriptChecking) await scriptChecking;
+  const s = getSettings();
+  // An older script can't send book audio: try Drive's own link instead.
+  if (!isScriptUrl(s.sheetUrl) || (state.script.version || 0) < 3) return clip.url;
+  const cacheReq = new Request(`https://book-audio.invalid/${clip.drive}`);
+  let blob = null;
+  try {
+    const hit = await (await caches.open(CACHE_NAME)).match(cacheReq);
+    if (hit) blob = await hit.blob();
+  } catch {
+    /* Cache API unavailable */
+  }
+  if (!blob) {
+    const res = await scriptPost(s.sheetUrl, { type: 'book-audio', id: clip.drive });
+    if (!res.audio) throw new Error(res.error || 'the Google Script sent no audio');
+    blob = new Blob([Uint8Array.from(atob(res.audio), (c) => c.charCodeAt(0))], { type: res.mime || 'audio/mpeg' });
+    try {
+      await (await caches.open(CACHE_NAME)).put(cacheReq, new Response(blob, { headers: { 'Content-Type': blob.type } }));
+    } catch {
+      /* Cache API unavailable */
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  trackSrcs.set(clip.drive, url);
+  return url;
+}
 
 // Plays [start, end] of a book track. Resolves true when it played (or was
 // stopped), false when the recording couldn't be loaded.
 function playClip(clip, token) {
-  let audio = trackAudio.get(clip.url);
-  if (!audio) {
-    audio = new Audio(clip.url);
-    audio.preload = 'auto';
-    trackAudio.set(clip.url, audio);
-  }
-  state.audio = audio;
   return new Promise((resolve) => {
+    let audio = null;
+    let src = null;
     let timer = null;
+    let loadTimer = null;
     let settled = false;
     const finish = (ok) => {
       if (settled) return;
       settled = true;
       clearInterval(timer);
-      audio.removeEventListener('error', failed);
-      audio.removeEventListener('loadedmetadata', start);
-      if (state.audio === audio) {
-        audio.pause();
-        state.audio = null;
+      clearTimeout(loadTimer);
+      if (audio) {
+        audio.removeEventListener('error', onError);
+        audio.removeEventListener('loadedmetadata', start);
+        if (state.audio === audio) {
+          audio.pause();
+          state.audio = null;
+        }
       }
       if (ok) emit({ type: 'end' });
       resolve(ok);
     };
-    const failed = () => {
-      trackAudio.delete(clip.url);
-      emit({ type: 'error', message: `Couldn't play the book recording (${clip.label}). Check that its Drive file is shared with “Anyone with the link”.` });
+    const failed = (reason) => {
+      if (src) trackAudio.delete(src);
+      if (token === state.token) {
+        const why =
+          (state.script.version || 0) < 3
+            ? 'the Google Script needs its update for book audio (new part 2 + AudiosLibro)'
+            : reason || 'it could not be loaded';
+        emit({ type: 'error', message: `Book recording not played (${clip.label}): ${why}.` });
+      }
       finish(false);
     };
-    // Seek only once the browser can: right away when the server accepts byte
+    const onError = () => failed();
+    // Seek only once the browser can: right away when the source accepts byte
     // ranges, otherwise when the clip has been downloaded (or after a few seconds).
     const inRanges = (ranges, t) => {
       for (let i = 0; i < ranges.length; i++) if (ranges.start(i) <= t && t <= ranges.end(i)) return true;
@@ -334,35 +379,51 @@ function playClip(clip, token) {
     };
     const canSeek = () => inRanges(audio.seekable, clip.start) || inRanges(audio.buffered, clip.end);
     let waited = 0;
-    const start = () => {
-      if (token !== state.token) return finish(true);
+    function start() {
+      clearTimeout(loadTimer);
+      if (token !== state.token) return finish(false);
       if (!canSeek() && waited < 8000) {
         waited += 100;
         setTimeout(start, 100);
         return;
       }
       audio.currentTime = clip.start;
-      // A server without byte ranges can leave the audio unseekable: rather than
-      // play the wrong line from the start of the track, use the app's voice.
-      if (Math.abs(audio.currentTime - clip.start) > 0.5) return failed();
+      // A source that can't seek would play the wrong line from the start of the track.
+      if (Math.abs(audio.currentTime - clip.start) > 0.5) return failed('it could not jump to the line');
       audio
         .play()
         .then(() => {
-          if (token !== state.token) return finish(true);
+          if (token !== state.token) return finish(false);
           emit({ type: 'play', source: `book recording · ${clip.label}` });
           timer = setInterval(() => {
-            if (token !== state.token || audio.ended || audio.currentTime >= clip.end) finish(token === state.token);
+            if (token !== state.token) return finish(false);
+            if (audio.ended || audio.currentTime >= clip.end) finish(true);
           }, 25);
         })
-        .catch(failed);
-    };
-    audio.addEventListener('error', failed, { once: true });
-    if (audio.readyState >= 1) start();
-    else {
-      emit({ type: 'loading', text: clip.label, mode: 'natural' });
-      audio.addEventListener('loadedmetadata', start, { once: true });
-      audio.load();
+        .catch(() => failed());
     }
+
+    emit({ type: 'loading', text: clip.label, mode: 'natural' });
+    trackSrc(clip)
+      .then((url) => {
+        if (token !== state.token) return finish(false);
+        src = url;
+        audio = trackAudio.get(src);
+        if (!audio) {
+          audio = new Audio(src);
+          audio.preload = 'auto';
+          trackAudio.set(src, audio);
+        }
+        state.audio = audio;
+        audio.addEventListener('error', onError, { once: true });
+        if (audio.readyState >= 1) start();
+        else {
+          loadTimer = setTimeout(() => failed('it took too long to load'), 20000);
+          audio.addEventListener('loadedmetadata', start, { once: true });
+          audio.load();
+        }
+      })
+      .catch((err) => failed(err.message));
   });
 }
 

@@ -63,8 +63,11 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 > `// ── fin de la parte N de 6 ──`: si no ves esa línea al final, se cortó al pegar.
 
 > **Audios del libro (Sesión VI).** Las grabaciones viven en Google Drive (no en este repositorio, que es público):
-> cada pista de `js/book-audio.js` necesita el ID de su archivo de Drive, compartido como «Cualquier persona con el
-> enlace». Sin ID, esas líneas usan la voz de la app.
+> cada pista de `js/book-audio.js` necesita el ID de su archivo de Drive. Google no deja que otra página reproduzca
+> los links de descarga de Drive, así que la app pide cada pista a tu script: pegá
+> [`google-apps-script/AudiosLibro.gs`](google-apps-script/AudiosLibro.gs) en un archivo aparte (solo entrega audios
+> de las carpetas de la Sesión VI) y reimplementá. Cada pista se baja una vez y queda guardada en el navegador. Sin
+> ID, o con un script viejo, esas líneas usan la voz de la app.
 >
 > **Listar los IDs.** [`google-apps-script/Transcribir.gs`](google-apps-script/Transcribir.gs) va en un
 > archivo aparte del mismo proyecto. `listarArchivosDelLibro` anota cada archivo de la carpeta de la Sesión VI con su
