@@ -21,6 +21,13 @@ export function renderSettings() {
             : st.status === 'offline'
               ? `Can't reach the Google Script: ${esc(st.error || 'offline')}.`
               : 'Checking the Google Script…';
+  // The Session VI book recordings come through the script from version 3 on.
+  const bookText =
+    st.status === 'checking' || st.status === 'offline'
+      ? ''
+      : st.version >= 3
+        ? '✓ Book recordings (Session VI): ready — they play through the Google Script.'
+        : 'Book recordings (Session VI): the Google Script needs its update — replace part 2, add the AudiosLibro file, then Deploy → Manage deployments → ✏ → New version. Until then the app’s voice reads those lines.';
   return `<header class="topic-head">
       <div class="eyebrow">Settings</div>
       <h1>Voice &amp; <em>results</em></h1>
@@ -31,6 +38,7 @@ export function renderSettings() {
       <section class="card form">
         <h2>Voice engine</h2>
         <p class="muted" style="margin:0">${engineText}</p>
+        ${bookText ? `<p class="muted" style="margin:0" data-book-status>${bookText}</p>` : ''}
         <div class="row">
           <div class="field" style="flex:1 1 180px"><label>Main voice</label><div class="vp-tab" aria-hidden="true" style="pointer-events:none"><span>${esc(voiceName('A'))}</span></div></div>
           <div class="field" style="flex:1 1 180px"><label>Second speaker</label><div class="vp-tab" aria-hidden="true" style="pointer-events:none"><span>${esc(voiceName('B'))}</span></div></div>

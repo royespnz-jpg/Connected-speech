@@ -333,7 +333,8 @@ document.addEventListener('click', async (e) => {
     const url = document.getElementById('sheet-url').value.trim();
     try {
       const info = await testConnection(url);
-      toast(`Connected to “${info.sheet}”${info.tts ? ' · voice engine ready' : ''}. Press Save.`);
+      const book = (info.version || 1) >= 3 ? ' · book recordings ready' : ' · book recordings need the script update';
+      toast(`Connected to “${info.sheet}”${info.tts ? ' · voice engine ready' : ''}${book}. Press Save.`);
     } catch (err) {
       toast(`Couldn't connect: ${err.message}`);
     }
@@ -423,6 +424,8 @@ route();
 loadManifest().then(refreshEngine);
 checkScript().then(() => {
   refreshEngine();
+  // The settings page shows what the script can do: show it once it's known.
+  if (location.hash.startsWith('#/settings')) route();
   if (getSettings().engine !== 'browser') loadVoices().then(refreshEngine);
 });
 if (linked) toast("Connected to your teacher's results sheet.");
