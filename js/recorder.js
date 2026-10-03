@@ -34,7 +34,7 @@ export async function toggleRecording(button) {
   recorder.start();
   button.classList.add('is-recording');
   button.querySelector('span')?.replaceChildren('Stop');
-  active = { button, recorder, stream, timer: setTimeout(finish, MAX_MS) };
+  active = { button, recorder, stream, timer: setTimeout(finish, Number(button.dataset.max) || MAX_MS) };
 }
 
 function finish() {
@@ -57,7 +57,7 @@ function showResult(button, blob, seconds) {
   out.hidden = false;
   out.innerHTML = `<span>Your recording:</span>
     <button type="button" class="pbtn" data-play-mine>${icons.play}<span>You</span></button>
-    <button type="button" class="pbtn" data-compare>${icons.play}<span>Model → You</span></button>
+    ${'free' in button.dataset ? '' : `<button type="button" class="pbtn" data-compare>${icons.play}<span>Model → You</span></button>`}
     ${sheetConfigured() ? '<button type="button" class="pbtn" data-send-rec>Send to my teacher</button>' : ''}`;
 }
 

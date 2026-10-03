@@ -15,6 +15,8 @@ export const icons = {
   arrowL: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 6.6 14 5.2 7.2 12l6.8 6.8 1.4-1.4L10 12z"/></svg>',
   arrowR: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 17.4 10 18.8l6.8-6.8L10 5.2 8.6 6.6 14 12z"/></svg>',
   arrowUR: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15.6 15.6 7H9V5h10v10h-2V8.4L8.4 17z"/></svg>',
+  headphones: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0-9 9v6.5A2.5 2.5 0 0 0 5.5 21H8v-8H5v-1a7 7 0 0 1 14 0v1h-3v8h2.5a2.5 2.5 0 0 0 2.5-2.5V12a9 9 0 0 0-9-9z"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 9V7A5 5 0 0 0 7 7v2H5v12h14V9h-2zm-8 0V7a3 3 0 0 1 6 0v2H9z"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z"/></svg>',
 };
 
@@ -44,9 +46,10 @@ export function audioButtons(text, { voice = 'A', words = true, slow = true } = 
   return html;
 }
 
-export function recButton(text) {
-  return `<button type="button" class="pbtn rec" data-rec data-text="${esc(text)}" title="Record yourself and compare"
-    aria-label="Record yourself saying: ${esc(text)}">${icons.mic}<span class="lbl-long">Record</span></button>`;
+// free: no model to compare with (role-plays, interviews); max: seconds.
+export function recButton(text, { round = false, free = false, max } = {}) {
+  return `<button type="button" class="pbtn rec${round ? ' round' : ''}" data-rec data-text="${esc(text)}"${free ? ' data-free' : ''}${max ? ` data-max="${max * 1000}"` : ''}
+    title="${free ? 'Record yourself' : 'Record yourself and compare'}" aria-label="${esc(free ? `Record: ${text}` : `Record yourself saying: ${text}`)}">${icons.mic}<span class="lbl-long">Record</span></button>`;
 }
 
 export function exampleItem(ex) {
@@ -74,15 +77,22 @@ export function tableHtml({ head, rows }) {
 }
 
 let dialogueSeq = 0;
-export function dialogueHtml(d, { playLabel = 'Play all' } = {}) {
+// rec: each line also has a recorder, to say the conversation with a partner.
+export function dialogueHtml(d, { playLabel = 'Play all', rec = false } = {}) {
   const id = `dlg-${++dialogueSeq}`;
+  // Speakers with the same initial (Stacy and Steve) show as many letters as it takes.
+  const names = [...new Set(d.lines.map((l) => l.who))];
+  let size = 1;
+  while (size < 4 && new Set(names.map((n) => n.slice(0, size))).size < names.length) size++;
+  const short = (who) => who.slice(0, size);
   const lines = d.lines
     .map((line) => {
       const text = exampleText(line);
-      return `<li class="dlg-line voice-${line.voice || 'A'}">
-        <span class="who" title="${esc(line.who)}"><span aria-hidden="true">${esc(line.who.slice(0, 1))}</span><span class="sr-only">${esc(line.who)}:</span></span>
+      return `<li class="dlg-line voice-${line.voice || 'A'}${rec ? ' rec-host' : ''}">
+        <span class="who${size > 1 ? ' long' : ''}" title="${esc(line.who)}"><span aria-hidden="true">${esc(short(line.who))}</span><span class="sr-only">${esc(line.who)}:</span></span>
         <span class="said">${renderMarkup(line.m)}${line.note ? `<small>${esc(line.note)}</small>` : ''}</span>
-        ${playButton(text, { voice: line.voice || 'A', label: '', round: true })}
+        <span class="dlg-actions">${playButton(text, { voice: line.voice || 'A', label: '', round: true })}${rec ? recButton(text, { round: true }) : ''}</span>
+        ${rec ? '<div class="rec-out" hidden></div>' : ''}
       </li>`;
     })
     .join('');

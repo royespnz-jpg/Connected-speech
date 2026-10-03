@@ -16,7 +16,7 @@ generado con **ElevenLabs**. Está basado en dos lecturas:
 | **11 temas** | Contracciones y blends · Linking (los 5 contextos) · Asimilación (progresiva, regresiva, coalescente) · Palatalización · Deleción (síncopa, aféresis, /r/ que desaparece…) · Epéntesis y disimilación · Weak forms y consonantes silábicas · Las distintas *t* (flap, *t* que desaparece, twenty…ninety) · gonna/gotta/hasta/hafta/oughta/usta/wanna · Qué usar, qué reconocer y qué evitar · Ideas para enseñar (diálogo, knock-knock jokes, picture grid…) |
 | **316 ejemplos + 5 diálogos con audio** | Cada ejemplo tiene ▶ *Play* (conectado), *Slow* y *Word by word* (palabra por palabra, la versión “choppy”) para comparar, más **Record** para grabarte y comparar con el modelo |
 | **9 sets de ejercicios** | Nombrar el proceso · gonna vs. going to (Ej. F) · qué sonido palatalizado (Ej. G) · las *t* de twenty…ninety (Ej. I) · deleción de /t d/ · weak vs. strong forms · usar/reconocer/evitar · encontrar las palabras con síncopa (Ej. H) · dictado a velocidad real |
-| **Sesión VI** | Las prácticas de la carpeta de la profe, en el orden del libro y con las respuestas comprobadas contra las grabaciones. *Pronunciation Plus* 36–37 (pistas 04–10): enlaces /w/ y /y/ · ¿/w/ o /y/? · sílabas iniciales cortas · la /h/ que desaparece. *Pronunciation Pairs*, prácticas 1–13: enlazar /ow/ · phrasal verbs · ¿/y/ o /w/? · /t/ final · gonna · grupos con -s · /ʃ/ · sílabas mudas · didja/doncha · useta · /h/ · the y than · /n/ silábica. Cada línea suena con **su fragmento de la grabación del libro** (`js/book-audio.js`, 223 líneas en 25 pistas) |
+| **Sesión VI** | Las prácticas de la carpeta de la profe, **una hoja por PDF** (*Pronunciation Plus* Units 36–37 y *Pronunciation Pairs* prácticas 1–13), con las secciones y los pasos numerados del libro y sus consignas. Lo que el PDF pide escribir, marcar, unir o dibujar se hace en la página y se corrige: responder preguntas, elegir /w/ o /y/, completar huecos, tachar la /h/ que se pierde, dibujar el enlace (‿ʸ ‿ʷ), unir conversaciones o imágenes, marcar todas las que correspondan y agregar ejemplos de spelling (validados con el diccionario de pronunciación CMU). Los pasos “Listen and repeat” y los de a dos (role-play, entrevista, diálogos) tienen grabadora. Cada línea suena con **su fragmento de la grabación del libro** (`js/book-audio.js`, 223 líneas en 25 pistas); lo que no tiene grabación en la carpeta lo lee la voz de la app y lo dice. Los pasos que muestran las respuestas se abren al terminar el anterior |
 | **Connected Speech Lab** | Escribís cualquier oración y marca linking, glides, palatalización, asimilación, deleción, flaps, reducciones (gonna, wanna…) y weak forms; después la escuchás y te grabás |
 
 Los diálogos (Bob y Marie, knock-knock jokes) usan **dos voces** distintas.
@@ -125,7 +125,8 @@ index.html              página única (router con #/…)
 css/styles.css          estilos (modo claro y oscuro)
 js/content.js           los 11 temas: reglas, tablas, ejemplos, diálogos
 js/exercises-data.js    los ejercicios y la corrección del dictado
-js/exercises-pp.js      Sesión VI: Pronunciation Plus, Units 36–37
+js/exercises-pp.js      Sesión VI: una hoja por PDF (Pronunciation Plus 36–37, Pronunciation Pairs 1–13)
+js/spelling-words.js    palabras aceptadas en los ejercicios de spelling (scripts/build-spelling-words.mjs)
 js/analyzer.js          el analizador del Lab (reglas basadas en la ortografía)
 js/tts.js               motor de voz: clip pre-generado → ElevenLabs (script o key propia) → voz del navegador
 js/voice-panel.js       el panel para elegir voces

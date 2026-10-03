@@ -18,7 +18,14 @@ import { esc, toast } from './ui.js';
 import { initVoicePanel, open as openVoicePanel } from './voice-panel.js';
 import { renderHome, handleStageClick } from './views/home.js';
 import { renderTopic } from './views/topic.js';
-import { renderPracticeList, renderPracticeSet, handlePracticeClick, handlePracticeSubmit, handleNameForm } from './views/practice.js';
+import {
+  renderPracticeList,
+  renderPracticeSet,
+  handlePracticeClick,
+  handlePracticeSubmit,
+  handlePracticeChange,
+  handleNameForm,
+} from './views/practice.js';
 import { applyLinkParams, flushQueue, isSheetUrl, testConnection } from './sheets.js';
 import { renderLab, renderLabResult } from './views/lab.js';
 import { renderSettings, renderCredits } from './views/settings.js';
@@ -289,7 +296,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  if (main.querySelector('[data-scorebar]')) {
+  if (main.querySelector('[data-practice]')) {
     const r = handlePracticeClick(t, main);
     if (r === 'rerender') route();
     if (r) return;
@@ -351,6 +358,10 @@ document.addEventListener('click', async (e) => {
 });
 
 document.addEventListener('change', (e) => {
+  if (e.target.closest('[data-build]')) {
+    handlePracticeChange(e.target, main);
+    return;
+  }
   if (e.target.matches('[data-model]')) {
     saveSettings({ model: e.target.value });
     toast('Model saved.');
