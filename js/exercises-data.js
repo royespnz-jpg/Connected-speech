@@ -6,6 +6,8 @@
 //   gap       – listen to a short conversation and type the missing word
 //   hdrop     – tap the h-words whose /h/ disappears in a conversation
 //   repeat    – listen, repeat and record (no score)
+// The Session VI worksheets (js/exercises-pp.js) are made of steps, each one
+// with one of these types or the worksheet-only ones described there.
 
 import { spokenText } from './markup.js';
 import { ppSets } from './exercises-pp.js';
@@ -277,11 +279,91 @@ export function pickTargets(set) {
   return (pickText(set).toLowerCase().match(/[a-z]+/g) || []).filter((w) => answers.has(w)).length;
 }
 
+// The steps of a set: a worksheet's steps, or the set itself.
+export function stepsOf(set) {
+  return set.steps || [set];
+}
+
+const SCORED = new Set(['choice', 'blank', 'pick', 'dictation', 'gap', 'hdrop', 'link', 'select', 'write', 'spelling']);
+export function isScored(step) {
+  return SCORED.has(step.type);
+}
+
+// Items the book solves as an example are shown answered and not scored.
+export const scoredItems = (step) => step.items.filter((it) => !it.example);
+
+export const SPELLING_INPUTS = 2;
+
+// Points in a scored step; lines to say in an unscored one.
+export function stepCount(step) {
+  switch (step.type) {
+    case 'pick':
+      return pickTargets(step);
+    case 'hdrop':
+      return hWords(step).length;
+    case 'repeat':
+      return step.sections ? step.sections.reduce((n, s) => n + s.items.length, 0) : step.items.length;
+    case 'dialogues':
+      return step.dialogues.reduce((n, d) => n + d.lines.length, 0);
+    case 'link':
+      return step.lines.length - (step.solved || 0);
+    case 'select':
+      return step.options.length;
+    case 'spelling':
+      return step.rows.length * SPELLING_INPUTS;
+    case 'speak':
+      return step.prompts?.length || 0;
+    case 'interview':
+      return step.items.length;
+    case 'build':
+      return 0;
+    default:
+      return scoredItems(step).length;
+  }
+}
+
+// The points of a set (all its scored steps), or the lines of an unscored one.
 export function itemCount(set) {
-  if (set.type === 'pick') return pickTargets(set);
-  if (set.type === 'hdrop') return hWords(set).length;
-  if (set.type === 'repeat') return set.sections.reduce((n, s) => n + s.items.length, 0);
-  return set.items.length;
+  const steps = stepsOf(set);
+  const scored = steps.filter(isScored);
+  return (scored.length ? scored : steps).reduce((n, step) => n + stepCount(step), 0);
+}
+
+// A line in markup → its words and links: "No,_[w]are you cold?" gives
+// words ["No,", "are", "you", "cold?"] and links { 0: 'w' } (a plain _ is 'link').
+export function linkTokens(m) {
+  const marked = m.replace(/_\[([wy])\]/g, ' \u0001$1 ').replace(/_/g, ' \u0001link ');
+  const words = [];
+  const links = {};
+  for (const tok of marked.split(/\s+/).filter(Boolean)) {
+    if (tok[0] === '\u0001') links[words.length - 1] = tok.slice(1);
+    else words.push(spokenText(tok));
+  }
+  return { words, links };
+}
+
+// Optimal string alignment distance (a swap of two letters counts as one edit).
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+// A written answer is right when it has every key word (one typo allowed in
+// longer words) and none of the wrong ones: "on thursday", "Thursday!" and
+// "thrusday" all answer "When is Brian's birthday?".
+export function writeCorrect(item, typed) {
+  const words = String(typed).toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).filter(Boolean);
+  const found = (key) => words.find((w) => w === key) || words.find((w) => key.length >= 5 && editDistance(w, key) <= 1);
+  const ok = item.keys.every(found) && !(item.not || []).some((k) => words.includes(k));
+  return { ok, typo: ok && !item.keys.every((k) => words.includes(k)) };
 }
 
 // A gap answer is right if it is the missing word, ignoring case and punctuation.

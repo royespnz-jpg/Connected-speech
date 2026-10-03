@@ -14,6 +14,10 @@ import {
   hLineText,
   gapCorrect,
   pickText,
+  stepsOf,
+  isScored,
+  linkTokens,
+  writeCorrect,
 } from '../js/exercises-data.js';
 import { collectAudioItems } from '../js/audio-items.js';
 import { parseMarkup, spokenText, renderMarkup } from '../js/markup.js';
@@ -48,43 +52,84 @@ test('every topic is reachable and has content', () => {
   }
 });
 
-test('exercise answers are valid', () => {
+test('exercise answers are valid', async () => {
+  const { SPELLING_WORDS } = await import('../js/spelling-words.js');
   for (const set of exerciseSets) {
-    if (set.type === 'repeat') {
-      assert.ok(itemCount(set) > 0, set.id);
-      continue;
+    const keys = [];
+    for (const step of stepsOf(set)) {
+      const id = set.steps ? `${set.id} ${step.key}` : set.id;
+      if (step.after) assert.ok(keys.includes(step.after), `${id}: waits for a later or missing step`);
+      keys.push(step.key);
+      checkStep(step, id, SPELLING_WORDS);
     }
-    if (set.type === 'hdrop') {
-      const words = hWords(set);
-      assert.ok(words.some((w) => w.drop) && words.some((w) => !w.drop), set.id);
-      for (const w of words) assert.match(w.word, /^w?h/i, `${set.id}: ${w.word} is not an h-word`);
-      continue;
-    }
-    if (set.type === 'pick') {
-      const words = new Set(pickText(set).toLowerCase().match(/[a-z]+/g));
-      for (const a of set.answers) assert.ok(words.has(a), `${set.id}: ${a} not in passage`);
-      continue;
-    }
-    for (const item of set.items) {
-      if (set.type === 'dictation') {
-        assert.ok(diffWords(item.answer, item.say).correct, `${set.id}: "${item.say}" should match "${item.answer}"`);
-        continue;
-      }
-      if (set.type === 'gap') {
-        assert.equal(item.b.split('___').length - 1, item.answer.length, `${set.id}: one answer per blank`);
-        for (const a of item.answer) assert.ok(itemSay(set, item).includes(a), set.id);
-        continue;
-      }
-      if (item.m) assert.ok(!/[_[\]*]/.test(itemSay(set, item)), `${set.id}: markup left in ${itemSay(set, item)}`);
-      const opts = itemOptions(set, item);
-      assert.ok(Number.isInteger(item.answer) && item.answer >= 0 && item.answer < opts.length, `${set.id}: bad answer`);
-      if (set.type === 'blank') {
-        assert.ok(item.s.includes('___'));
-        assert.ok(!itemSay(set, item).includes('___'));
-      }
-    }
+    assert.ok(itemCount(set) > 0, set.id);
   }
 });
+
+function checkStep(step, id, SPELLING_WORDS) {
+  switch (step.type) {
+    case 'repeat':
+      assert.ok((step.items || step.sections).length > 0, id);
+      return;
+    case 'dialogues':
+      for (const d of step.dialogues) assert.ok(d.lines.every((l) => l.who && l.m), id);
+      return;
+    case 'speak':
+    case 'build':
+    case 'interview':
+      return;
+    case 'hdrop': {
+      const words = hWords(step);
+      assert.ok(words.some((w) => w.drop) && words.some((w) => !w.drop), id);
+      for (const w of words) assert.match(w.word, /^w?h/i, `${id}: ${w.word} is not an h-word`);
+      return;
+    }
+    case 'pick': {
+      const words = new Set(pickText(step).toLowerCase().match(/[a-z]+/g));
+      for (const a of step.answers) assert.ok(words.has(a), `${id}: ${a} not in passage`);
+      return;
+    }
+    case 'link':
+      step.lines.forEach((m, i) => {
+        const { words, links } = linkTokens(m);
+        assert.ok(Object.keys(links).length > 0 && words.length > 1, `${id}: line ${i + 1} has no link`);
+        if (step.glides) for (const g of Object.values(links)) assert.match(g, /^[wy]$/, `${id}: line ${i + 1} needs /w/ or /y/`);
+      });
+      return;
+    case 'select':
+      assert.ok(step.answers.length && step.answers.every((a) => a >= 0 && a < step.options.length), id);
+      return;
+    case 'write':
+      for (const item of step.items) assert.ok(writeCorrect(item, item.answer).ok, `${id}: “${item.answer}” should be right`);
+      return;
+    case 'spelling':
+      for (const row of step.rows) {
+        const list = new Set(SPELLING_WORDS[row.list].split(' '));
+        for (const w of row.given.filter((g) => /^[a-z]+$/.test(g))) {
+          assert.ok(list.has(w) && new RegExp(row.spell).test(w), `${id}: the book's “${w}” should be accepted in row ${row.label}`);
+        }
+      }
+      return;
+  }
+  for (const item of step.items) {
+    if (step.type === 'dictation') {
+      assert.ok(diffWords(item.answer, item.say).correct, `${id}: "${item.say}" should match "${item.answer}"`);
+      continue;
+    }
+    if (step.type === 'gap') {
+      assert.equal(item.b.split('___').length - 1, item.answer.length, `${id}: one answer per blank`);
+      for (const a of item.answer) assert.ok(itemSay(step, item).includes(a), id);
+      continue;
+    }
+    if (item.m) assert.ok(!/[_[\]*]/.test(itemSay(step, item)), `${id}: markup left in ${itemSay(step, item)}`);
+    const opts = itemOptions(step, item);
+    assert.ok(Number.isInteger(item.answer) && item.answer >= 0 && item.answer < opts.length, `${id}: bad answer`);
+    if (step.type === 'blank') {
+      assert.ok(item.s.includes('___'));
+      assert.ok(!itemSay(step, item).includes('___'));
+    }
+  }
+}
 
 test('every exercise set is listed under a group', () => {
   const ids = new Set(exerciseGroups.map((g) => g.id));
@@ -93,29 +138,40 @@ test('every exercise set is listed under a group', () => {
 });
 
 test('Session VI answers match the book recordings', () => {
-  const set = (id) => exerciseSets.find((s) => s.id === id);
-  const wy = set('pp36-wy');
+  const step = (setId, key) => exerciseSets.find((s) => s.id === setId).steps.find((st) => st.key === key);
+  const wy = step('pp-36', '6');
   for (const item of wy.items) {
     const glide = item.after.match(/_\[([wy])\]/)[1];
-    assert.equal(wy.options[item.answer], `/${glide}/`, item.m);
+    assert.equal(wy.options[item.answer], glide, item.m);
   }
-  // Track 08: item 6 has two blanks, item 7 is "asleep".
-  const short = set('pp37-short');
+  // Exercise 8: five two-line conversations, each reply used once.
+  const conv = step('pp-36', '8');
+  assert.equal(new Set(conv.items.map((i) => i.answer)).size, conv.items.length);
+  // Exercise 1: answered from the sentences of exercises 4 and 5.
+  const q = step('pp-36', '1');
+  assert.ok(writeCorrect(q.items[0], 'on thrusday').ok && !writeCorrect(q.items[0], 'Friday').ok);
+  assert.ok(writeCorrect(q.items[1], 'an umbrella').ok);
+  assert.ok(writeCorrect(q.items[2], 'Saturday').ok && !writeCorrect(q.items[2], 'Thursday evening').ok);
+  // Unit 37, track 08: item 6 has two blanks, item 7 is "asleep".
+  const short = step('pp-37', '2');
   assert.equal(itemSay(short, short.items[5]), "Yes. It's about five minutes away.");
   assert.equal(itemSay(short, short.items[6]), "Sorry, he's asleep right now.");
   assert.ok(gapCorrect('across', ' Across. ') && !gapCorrect('across', 'cross'));
-  // Track 10: the /h/ is lost in exactly these words.
-  const lost = hWords(set('pp37-h')).filter((w) => w.drop).map((w) => w.word);
+  // Unit 37, track 10: the /h/ is lost in exactly these words.
+  const lost = hWords(step('pp-37', '4')).filter((w) => w.drop).map((w) => w.word);
   assert.deepEqual(lost, ['him', 'who', 'he', 'her', 'him', 'his', 'him', 'have', 'he', 'him']);
   assert.equal(hLineText('Did {^he} tell {^her}?'), 'Did he tell her?');
-  // Pronunciation Pairs: every sentence in practice 1 has one /ow/ link, and the replies are a one-to-one match.
-  const linking = set('pairs-linking');
-  assert.equal(itemCount(linking), linking.lines.length);
-  for (const m of linking.reveal) assert.equal((m.match(/_\[w\]/g) || []).length, 1, m);
-  const scrambled = set('pairs-scrambled');
+  // …and exercise 6 shows those links: "Have they found‿him?"
+  assert.equal(step('pp-37', '6').dialogues[0].lines[0].m, 'Have they found_(h)im?');
+  // Pronunciation Pairs 1: every sentence has one /ow/ link; the replies are a one-to-one match.
+  const linking = step('pairs-1', 'E2');
+  for (const m of linking.lines) assert.deepEqual(Object.values(linkTokens(m).links), ['w'], m);
+  const scrambled = step('pairs-1', 'F1');
   assert.equal(new Set(scrambled.items.map((i) => i.answer)).size, scrambled.items.length);
   assert.equal(scrambled.options[scrambled.items[0].answer], "No, I don't.");
-  assert.deepEqual(set('pairs-gonna').items.map((i) => i.answer), [1, 1, 0, 0]);
+  assert.deepEqual(step('pairs-5', 'F1').items.map((i) => i.answer), [1, 1, 0, 0]);
+  assert.deepEqual(step('pairs-3', 'B1').lines.map((m) => linkTokens(m).links), [{ 2: 'y' }, { 0: 'w' }, { 3: 'y' }, { 2: 'y' }, { 0: 'w' }, { 2: 'y' }, { 0: 'y' }]);
+  assert.ok(isScored(step('pairs-8', 'E3')) && !isScored(step('pairs-8', 'E2')));
 });
 
 test('dictation checking accepts reduced spellings and contractions', () => {
@@ -157,31 +213,37 @@ test('book recordings: every Session VI line with a track has a clip, and every 
   const { BOOK_TRACKS, BOOK_CLIPS, bookClip } = await import('../js/book-audio.js');
   const { exampleText } = await import('../js/audio-items.js');
   const { spokenText } = await import('../js/markup.js');
-  const lines = new Map(); // spoken text → track ids of every set that has the line
-  for (const set of exerciseSets.filter((s) => s.tracks)) {
-    const add = (t) => lines.set(t, new Set([...(lines.get(t) || []), ...set.tracks]));
-    const addEx = (it) => add(exampleText(typeof it === 'string' ? { m: it } : it));
-    for (const sec of set.sections || []) sec.items.forEach(addEx);
-    for (const m of (set.compare || []).flat()) addEx(m);
-    (set.examples || []).forEach(addEx);
-    (set.reveal || []).forEach(addEx);
-    for (const conv of set.conversations || []) for (const [, t] of conv) add(hLineText(t));
-    for (const item of set.items || []) {
-      if (item.dialogue) {
-        for (const l of item.dialogue) add(spokenText(l.m));
-        continue;
+  const used = new Set();
+  for (const set of exerciseSets.filter((s) => s.steps)) {
+    for (const t of set.tracks) assert.ok(BOOK_TRACKS[t], `${set.id}: no track ${t}`);
+    for (const step of set.steps) {
+      const lines = [];
+      const add = (t) => lines.push(t);
+      const addEx = (it) => add(exampleText(typeof it === 'string' ? { m: it } : it));
+      if (step.type === 'repeat') step.items.forEach(addEx);
+      for (const d of step.dialogues || []) d.lines.forEach(addEx);
+      for (const conv of step.conversations || []) for (const [, t] of conv) add(hLineText(t));
+      if (step.type === 'link') step.lines.forEach((m) => add(spokenText(m)));
+      for (const item of step.items || []) {
+        if (step.type === 'write') add(spokenText(item.from));
+        else if (item.dialogue) item.dialogue.forEach(addEx);
+        else if (!['repeat', 'interview'].includes(step.type)) {
+          if (step.type === 'gap' && item.a) add(item.a);
+          if (itemSay(step, item)) add(itemSay(step, item));
+        }
       }
-      if (set.type === 'gap' && item.a) add(item.a);
-      add(itemSay(set, item));
+      lines.forEach((t) => used.add(t));
+      if (!step.track) continue;
+      assert.ok(set.tracks.includes(step.track), `${set.id} ${step.key}: ${step.track} is not one of the set's tracks`);
+      for (const t of lines) {
+        assert.ok(BOOK_CLIPS[t], `${set.id} ${step.key}: no clip for "${t}"`);
+        assert.ok(set.tracks.includes(BOOK_CLIPS[t][0]), `${set.id} ${step.key}: "${t}" is in the wrong track`);
+      }
     }
-  }
-  for (const [text, tracks] of lines) {
-    assert.ok(BOOK_CLIPS[text], `no clip for "${text}"`);
-    assert.ok(tracks.has(BOOK_CLIPS[text][0]), `"${text}" is in the wrong track`);
   }
   const last = {};
   for (const [text, [track, start, end]] of Object.entries(BOOK_CLIPS)) {
-    assert.ok(lines.has(text), `clip without a line: "${text}"`);
+    assert.ok(used.has(text), `clip without a line: "${text}"`);
     assert.ok(BOOK_TRACKS[track] && end - start > 0.4 && start >= (last[track] ?? 0), `bad times for "${text}"`);
     last[track] = end;
   }
