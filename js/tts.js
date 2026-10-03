@@ -304,13 +304,19 @@ export async function play(text, { mode = 'natural', voice = 'A', voiceId } = {}
 // fetched once and kept in the browser's cache; its audio element is reused.
 const trackSrcs = new Map(); // Drive ID → object URL
 const trackAudio = new Map(); // src → audio element
+// A track the script couldn't send isn't asked for again until the page reloads,
+// so each line goes straight to the app's voice instead of waiting for it.
+const trackFailures = new Map(); // Drive ID → error
+const OLD_SCRIPT = 'the Google Script needs its update for book audio (new part 2 + AudiosLibro)';
 
 async function trackSrc(clip) {
   if (trackSrcs.has(clip.drive)) return trackSrcs.get(clip.drive);
+  if (trackFailures.has(clip.drive)) throw trackFailures.get(clip.drive);
   if (scriptChecking) await scriptChecking;
   const s = getSettings();
-  // An older script can't send book audio: try Drive's own link instead.
-  if (!isScriptUrl(s.sheetUrl) || (state.script.version || 0) < 3) return clip.url;
+  // Without the updated script there is no way to play the track (Google
+  // doesn't let other pages play Drive's own links).
+  if (!isScriptUrl(s.sheetUrl) || (state.script.version || 0) < 3) throw Object.assign(new Error(OLD_SCRIPT), { quiet: true });
   const cacheReq = new Request(`https://book-audio.invalid/${clip.drive}`);
   let blob = null;
   try {
@@ -320,8 +326,19 @@ async function trackSrc(clip) {
     /* Cache API unavailable */
   }
   if (!blob) {
-    const res = await scriptPost(s.sheetUrl, { type: 'book-audio', id: clip.drive });
-    if (!res.audio) throw new Error(res.error || 'the Google Script sent no audio');
+    let res;
+    try {
+      res = await scriptPost(s.sheetUrl, { type: 'book-audio', id: clip.drive });
+      if (!res.audio) throw Object.assign(new Error('it sent no audio'), { fromScript: true });
+    } catch (err) {
+      if (!err.fromScript) throw new Error(`the Google Script didn't answer (${err.message})`);
+      const why = /bookAudio_/.test(err.message)
+        ? 'the Google Script is missing its AudiosLibro file'
+        : `the Google Script couldn't send it (${err.message})`;
+      const failure = Object.assign(new Error(why), { quiet: true });
+      trackFailures.set(clip.drive, failure);
+      throw failure;
+    }
     blob = new Blob([Uint8Array.from(atob(res.audio), (c) => c.charCodeAt(0))], { type: res.mime || 'audio/mpeg' });
     try {
       await (await caches.open(CACHE_NAME)).put(cacheReq, new Response(blob, { headers: { 'Content-Type': blob.type } }));
@@ -359,14 +376,13 @@ function playClip(clip, token) {
       if (ok) emit({ type: 'end' });
       resolve(ok);
     };
-    const failed = (reason) => {
+    // quiet: the reason was already shown once (an old script, or a track the
+    // script can't send); the line just uses the app's voice.
+    const failed = (reason, quiet = false) => {
       if (src) trackAudio.delete(src);
-      if (token === state.token) {
-        const why =
-          (state.script.version || 0) < 3
-            ? 'the Google Script needs its update for book audio (new part 2 + AudiosLibro)'
-            : reason || 'it could not be loaded';
-        emit({ type: 'error', message: `Book recording not played (${clip.label}): ${why}.` });
+      if (token === state.token && !(quiet && state.warnedBook?.has(reason))) {
+        if (quiet) (state.warnedBook ??= new Set()).add(reason);
+        emit({ type: 'error', message: `Book recording not played${reason === OLD_SCRIPT ? '' : ` (${clip.label})`}: ${reason || 'it could not be loaded'}.` });
       }
       finish(false);
     };
@@ -423,7 +439,7 @@ function playClip(clip, token) {
           audio.load();
         }
       })
-      .catch((err) => failed(err.message));
+      .catch((err) => failed(err.message, err.quiet));
   });
 }
 

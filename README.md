@@ -67,7 +67,8 @@ Cuando un alumno termina un ejercicio, la app puede mandar el resultado a una pl
 > los links de descarga de Drive, así que la app pide cada pista a tu script: pegá
 > [`google-apps-script/AudiosLibro.gs`](google-apps-script/AudiosLibro.gs) en un archivo aparte (solo entrega audios
 > de las carpetas de la Sesión VI) y reimplementá. Cada pista se baja una vez y queda guardada en el navegador. Sin
-> ID, o con un script viejo, esas líneas usan la voz de la app.
+> ID, o con un script viejo, esas líneas usan la voz de la app (lo avisa una sola vez). **Settings → Voice engine** dice si
+> el script ya está listo para los audios del libro.
 >
 > **Listar los IDs.** [`google-apps-script/Transcribir.gs`](google-apps-script/Transcribir.gs) va en un
 > archivo aparte del mismo proyecto. `listarArchivosDelLibro` anota cada archivo de la carpeta de la Sesión VI con su

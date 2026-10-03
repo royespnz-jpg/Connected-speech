@@ -16,7 +16,8 @@ async function readJson(res) {
   } catch {
     throw new Error('The Google Script did not answer with data. Is it deployed for “Anyone”?');
   }
-  if (!data.ok) throw new Error(data.error || 'The Google Script rejected the request.');
+  // fromScript: the script answered, with an error of its own.
+  if (!data.ok) throw Object.assign(new Error(data.error || 'The Google Script rejected the request.'), { fromScript: true });
   return data;
 }
 
